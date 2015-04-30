@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,13 +14,22 @@ import (
 	"github.com/stretchr/graceful"
 )
 
+var (
+	bind             = flag.String("bind", ":8000", "address to bind on")
+	mongoURI         = flag.String("mongo-uri", "localhost/hooky", "MongoDB URI to connect to.")
+	maxMongoQuerier  = flag.Int("max-mongo-query", 1, "maximum number of parallel queries on MongoDB")
+	maxHttpRequester = flag.Int("max-http-request", 20, "maximum number of parallel HTTP requests")
+)
+
 func main() {
-	s, err := store.New("localhost/hooky")
+	flag.Parse()
+
+	s, err := store.New(*mongoURI)
 	if err != nil {
 		log.Fatal(err)
 	}
 	m := models.NewManager(s)
-	sched := scheduler.New(m, 1, 20)
+	sched := scheduler.New(m, *maxMongoQuerier, *maxHttpRequester)
 	sched.Start()
 	ra, err := restapi.New(m)
 	if err != nil {
@@ -29,7 +39,7 @@ func main() {
 	server := &graceful.Server{
 		Timeout: 10 * time.Second,
 		Server: &http.Server{
-			Addr:    ":8002",
+			Addr:    *bind,
 			Handler: ra.MakeHandler(),
 		},
 	}
