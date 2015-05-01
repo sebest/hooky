@@ -2,7 +2,6 @@ package restapi
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/sebest/hooky/models"
@@ -12,14 +11,6 @@ import (
 type RestAPI struct {
 	tm  *models.TasksManager
 	api *rest.Api
-}
-
-// UnixToRFC3339 converts a Unix timestamp to a human readable format.
-func UnixToRFC3339(ts int64) string {
-	if ts > 0 {
-		return time.Unix(ts, 0).UTC().Format(time.RFC3339)
-	}
-	return ""
 }
 
 // New creates a new instance of the Rest API.
@@ -35,7 +26,7 @@ func New(tm *models.TasksManager) (*RestAPI, error) {
 	router, err := rest.MakeRouter(
 		rest.Post("/tasks", ra.PostTask),
 		rest.Get("/tasks/:taskID", ra.GetTask),
-		rest.Post("/crontabs", ra.PostCrontab),
+		rest.Post("/crontabs", ra.PostCrontab), // or PUT /crontabs/NAME
 	)
 	if err != nil {
 		return nil, err
