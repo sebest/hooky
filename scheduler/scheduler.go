@@ -9,16 +9,16 @@ import (
 )
 
 type Scheduler struct {
-	m          *models.Manager
+	tm         *models.TasksManager
 	wg         sync.WaitGroup
 	quit       chan bool
 	querierSem chan bool
 	workerSem  chan bool
 }
 
-func New(m *models.Manager, maxQuerier int, maxWorker int) *Scheduler {
+func New(tm *models.TasksManager, maxQuerier int, maxWorker int) *Scheduler {
 	return &Scheduler{
-		m:          m,
+		tm:         tm,
 		quit:       make(chan bool),
 		querierSem: make(chan bool, maxQuerier),
 		workerSem:  make(chan bool, maxWorker),
@@ -42,7 +42,7 @@ func (s *Scheduler) Start() {
 					s.workerSem <- true
 					s.wg.Add(1)
 					defer s.wg.Done()
-					attempt, err := s.m.Attempts.Next(10)
+					attempt, err := s.tm.Attempts.Next(10)
 					if attempt != nil {
 						s.wg.Add(1)
 						go func() {
@@ -77,17 +77,17 @@ func (s *Scheduler) worker(attempt *models.Attempt) {
 				if attempt == nil {
 					return
 				}
-				_, err := s.m.Tasks.NextAttempt(attempt.TaskID, attempt.Status)
+				_, err := s.tm.NextAttempt(attempt.TaskID, attempt.Status)
 				if err != nil {
 					fmt.Println(err)
 				}
 				return
 			case <-time.After(5 * time.Second):
-				s.m.Attempts.Touch(attempt.ID, 10)
+				s.tm.Attempts.Touch(attempt.ID, 10)
 			}
 		}
 	}()
-	attempt, err := s.m.Attempts.Do(attempt)
+	attempt, err := s.tm.Attempts.Do(attempt)
 	if err != nil {
 		fmt.Println(err)
 	}

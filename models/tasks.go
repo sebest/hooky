@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/robfig/cron"
@@ -11,8 +12,11 @@ import (
 
 // Task describes a Webtask.
 type Task struct {
-	// ID is the ID of the webtask.
-	ID bson.ObjectId `bson:"_id"`
+	// ID is the ID of the task.
+	ID bson.ObjectId `bson:"_id,omitempty"`
+
+	// Crontab is the name of the parent crontab.
+	Crontab string `bson:"crontab,omitempty"`
 
 	// URL is the URL that the worker with requests.
 	URL string `bson:"url"`
@@ -26,8 +30,8 @@ type Task struct {
 	// Payload is arbitrary data that will be POSTed on the URL.
 	Payload string `bson:"payload,omitempty"`
 
-	// When is a cron specification describing thre recurrency if any.
-	When string `bson:"when,omitempty"`
+	// Schedule is a cron specification describing the recurrency if any.
+	Schedule string `bson:"schedule,omitempty"`
 
 	// At is a Unix timestamp representing the next time a request must be performed.
 	At int64 `bson:"at"`
@@ -65,25 +69,47 @@ func (h *Task) ErrorRate() int {
 	return int(h.Errors * 100 / h.Executions)
 }
 
+// TasksManager ...
 type TasksManager struct {
-	store *store.Store
+	store    *store.Store
+	Attempts *AttemptsManager
 }
 
-func NewTasksManager(store *store.Store) *TasksManager {
-	return &TasksManager{
-		store: store,
+func (tm *TasksManager) init() {
+	db := tm.store.DB()
+	defer db.Session.Close()
+
+	index := mgo.Index{
+		Key:        []string{"crontab"},
+		Unique:     true,
+		Background: false,
+		Sparse:     true,
+	}
+	if err := db.C("tasks").EnsureIndex(index); err != nil {
+		fmt.Printf("Error creating index on tasks: %s\n", err)
 	}
 }
 
-func nextRun(when string) (int64, error) {
-	sched, err := cron.Parse(when)
+// NewTasksManager ...
+func NewTasksManager(store *store.Store) *TasksManager {
+	tm := &TasksManager{
+		store:    store,
+		Attempts: NewAttemptsManager(store),
+	}
+	tm.init()
+	return tm
+}
+
+func nextRun(schedule string) (int64, error) {
+	sched, err := cron.Parse(schedule)
 	if err != nil {
 		return 0, err
 	}
 	return sched.Next(time.Now().UTC()).UnixNano(), nil
 }
 
-func (tm *TasksManager) New(URL string, method string, headers map[string]string, payload string, when string, retry Retry) (task *Task, err error) {
+// New creates a new Task.
+func (tm *TasksManager) New(URL string, method string, headers map[string]string, payload string, schedule string, retry Retry, crontab string) (task *Task, err error) {
 	// Default method is POST.
 	if method == "" {
 		method = "POST"
@@ -92,11 +118,11 @@ func (tm *TasksManager) New(URL string, method string, headers map[string]string
 	if method != "POST" {
 		payload = ""
 	}
-	// If `when` is defined we compute the next date of the first attempt,
+	// If `schedule` is defined we compute the next date of the first attempt,
 	// otherwise it is right now.
 	var at int64
-	if when != "" {
-		at, err = nextRun(when)
+	if schedule != "" {
+		at, err = nextRun(schedule)
 		if err != nil {
 			return
 		}
@@ -122,23 +148,49 @@ func (tm *TasksManager) New(URL string, method string, headers map[string]string
 
 	// Create a new `Task` and store it.
 	task = &Task{
-		ID:      bson.NewObjectId(),
-		URL:     URL,
-		Method:  method,
-		Headers: headers,
-		Payload: payload,
-		At:      at,
-		Status:  "pending",
-		Active:  true,
-		When:    when,
-		Retry:   retry,
+		ID:       bson.NewObjectId(),
+		Crontab:  crontab,
+		URL:      URL,
+		Method:   method,
+		Headers:  headers,
+		Payload:  payload,
+		At:       at,
+		Status:   "pending",
+		Active:   at > 0,
+		Schedule: schedule,
+		Retry:    retry,
 	}
 	db := tm.store.DB()
 	defer db.Session.Close()
 	err = db.C("tasks").Insert(task)
+	if mgo.IsDup(err) {
+		change := mgo.Change{
+			Update: bson.M{
+				"$set": bson.M{
+					"url":      URL,
+					"method":   method,
+					"headers":  headers,
+					"payload":  payload,
+					"at":       at,
+					"active":   at > 0,
+					"schedule": schedule,
+					"retry":    retry,
+				},
+			},
+			ReturnNew: true,
+		}
+		_, err = db.C("tasks").Find(bson.M{"crontab": crontab}).Apply(change, task)
+		if err == nil {
+			err = tm.Attempts.RemovePending(task.ID)
+		}
+	}
+	if err == nil {
+		_, err = tm.Attempts.New(task)
+	}
 	return
 }
 
+// Get returns a Task given its ID.
 func (tm *TasksManager) Get(taskID bson.ObjectId) (task *Task, err error) {
 	db := tm.store.DB()
 	defer db.Session.Close()
@@ -147,6 +199,7 @@ func (tm *TasksManager) Get(taskID bson.ObjectId) (task *Task, err error) {
 	return
 }
 
+// NextAttempt enqueue the next Attempt if any and returns it.
 func (tm *TasksManager) NextAttempt(taskID bson.ObjectId, status string) (attempt *Attempt, err error) {
 	db := tm.store.DB()
 	defer db.Session.Close()
@@ -155,8 +208,8 @@ func (tm *TasksManager) NextAttempt(taskID bson.ObjectId, status string) (attemp
 		return nil, err
 	}
 	var at int64
-	if task.Active && task.When != "" {
-		at, err = nextRun(task.When)
+	if task.Active && task.Schedule != "" {
+		at, err = nextRun(task.Schedule)
 	}
 
 	now := time.Now().UTC()
@@ -194,7 +247,7 @@ func (tm *TasksManager) NextAttempt(taskID bson.ObjectId, status string) (attemp
 	}
 	_, err = db.C("tasks").FindId(taskID).Apply(change, task)
 	if task.Active && task.At != 0 {
-		attempt, err = NewAttempt(tm.store, task)
+		attempt, err = tm.Attempts.New(task)
 	}
 	return
 }

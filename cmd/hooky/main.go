@@ -28,10 +28,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	m := models.NewManager(s)
-	sched := scheduler.New(m, *maxMongoQuerier, *maxHttpRequester)
+	tm := models.NewTasksManager(s)
+	sched := scheduler.New(tm, *maxMongoQuerier, *maxHttpRequester)
 	sched.Start()
-	ra, err := restapi.New(m)
+	ra, err := restapi.New(tm)
 	if err != nil {
 		log.Fatal(err)
 	}

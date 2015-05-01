@@ -11,7 +11,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-// Attempt describes a HTTP request that must be perform for a Webtask.
+// Attempt describes a HTTP request that must be perform for a task.
 type Attempt struct {
 	// ID is the ID of the attempt.
 	ID bson.ObjectId `bson:"_id"`
@@ -58,7 +58,8 @@ func NewAttemptsManager(store *store.Store) *AttemptsManager {
 	}
 }
 
-func NewAttempt(store *store.Store, task *Task) (*Attempt, error) {
+// New creates a new Attempt.
+func (am *AttemptsManager) New(task *Task) (*Attempt, error) {
 	attempt := &Attempt{
 		ID:       bson.NewObjectId(),
 		TaskID:   task.ID,
@@ -69,17 +70,12 @@ func NewAttempt(store *store.Store, task *Task) (*Attempt, error) {
 		Reserved: task.At,
 		Status:   "pending",
 	}
-	db := store.DB()
+	db := am.store.DB()
 	defer db.Session.Close()
 	if err := db.C("attempts").Insert(attempt); err != nil {
 		return nil, err
 	}
 	return attempt, nil
-}
-
-// New creates a new Attempt.
-func (am *AttemptsManager) New(task *Task) (*Attempt, error) {
-	return NewAttempt(am.store, task)
 }
 
 // Do executes the attempt.
@@ -175,4 +171,13 @@ func (am *AttemptsManager) Next(ttr int64) (*Attempt, error) {
 		return nil, err
 	}
 	return attempt, nil
+}
+
+// RemovePending remove all pending Attempts for a given Task ID.
+func (am *AttemptsManager) RemovePending(taskID bson.ObjectId) error {
+	db := am.store.DB()
+	defer db.Session.Close()
+	query := bson.M{"task_id": taskID, "status": "pending"}
+	_, err := db.C("attempts").RemoveAll(query)
+	return err
 }
