@@ -119,19 +119,16 @@ func (b *Base) NewTask(account bson.ObjectId, application string, queue string, 
 	}
 	// Define default parameters for our retry strategy.
 	if retry.MaxAttempts == 0 {
-		retry.MaxAttempts = 1
-	}
-	if retry.Max == 0 {
-		retry.Max = 300
-	}
-	if retry.Min == 0 {
-		retry.Min = 10
+		retry.MaxAttempts = 10
 	}
 	if retry.Factor == 0 {
 		retry.Factor = 2
 	}
-	if retry.MaxAttempts == 0 {
-		retry.MaxAttempts = 60
+	if retry.Min == 0 {
+		retry.Min = 10
+	}
+	if retry.Max == 0 {
+		retry.Max = 300
 	}
 
 	// Create a new `Task` and store it.

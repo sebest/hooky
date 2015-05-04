@@ -44,7 +44,7 @@ type Task struct {
 	// Payload is arbitrary data that will be POSTed on the URL.
 	Payload string `json:"payload,omitempty"`
 
-	// Schedule is a cron specification describing thre recurrency if any.
+	// Schedule is a cron specification describing the recurrency if any.
 	Schedule string `json:"schedule,omitempty"`
 
 	// At is a date representing the next time a attempt will be executed.
