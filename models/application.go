@@ -1,7 +1,6 @@
 package models
 
 import (
-	"errors"
 	"fmt"
 
 	"gopkg.in/mgo.v2"
@@ -16,7 +15,7 @@ type Application struct {
 	// Account is the ID of the Account owning the Application.
 	Account bson.ObjectId `bson:"account"`
 
-	// Name is the application's name.
+	// Name is the Application's name.
 	Name string `bson:"name"`
 
 	// Deleted
@@ -25,9 +24,6 @@ type Application struct {
 
 // NewApplication creates a new Application.
 func (b *Base) NewApplication(account bson.ObjectId, name string) (application *Application, err error) {
-	if name == "default" {
-		return nil, errors.New("The application name 'default' is reserved.")
-	}
 	application = &Application{
 		ID:      bson.NewObjectId(),
 		Account: account,
@@ -55,8 +51,10 @@ func (b *Base) DeleteApplications(account bson.ObjectId) (err error) {
 		},
 	}
 	if _, err = b.db.C("applications").UpdateAll(query, update); err == nil {
-		if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
-			_, err = b.db.C("attempts").UpdateAll(query, update)
+		if _, err = b.db.C("queues").UpdateAll(query, update); err == nil {
+			if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
+				_, err = b.db.C("attempts").UpdateAll(query, update)
+			}
 		}
 	}
 	return
@@ -78,8 +76,10 @@ func (b *Base) DeleteApplication(account bson.ObjectId, application string) (err
 			"account":     account,
 			"application": application,
 		}
-		if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
-			_, err = b.db.C("attempts").UpdateAll(query, update)
+		if _, err = b.db.C("queues").UpdateAll(query, update); err == nil {
+			if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
+				_, err = b.db.C("attempts").UpdateAll(query, update)
+			}
 		}
 	}
 	return

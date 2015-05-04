@@ -18,8 +18,11 @@ type Attempt struct {
 	// Account is the ID of the Account owning the Task.
 	Account bson.ObjectId `bson:"account"`
 
-	// Application is the name of the parent application.
+	// Application is the name of the parent Application.
 	Application string `bson:"application"`
+
+	// Queue is the name of the parent Queue.
+	Queue string `bson:"queue"`
 
 	// Task is the task's name.
 	Task string `bson:"task"`
@@ -29,6 +32,9 @@ type Attempt struct {
 
 	// URL is the URL that the worker with requests.
 	URL string `bson:"url"`
+
+	// HTTPAuth is the HTTP authentication to use if any.
+	HTTPAuth HTTPAuth `json:"auth"`
 
 	// Method is the HTTP method that will be used to execute the request.
 	Method string `bson:"method"`
@@ -62,8 +68,10 @@ func (b *Base) NewAttempt(task *Task) (*Attempt, error) {
 		TaskID:      task.ID,
 		Account:     task.Account,
 		Application: task.Application,
+		Queue:       task.Queue,
 		Task:        task.Name,
 		URL:         task.URL,
+		HTTPAuth:    task.HTTPAuth,
 		Method:      task.Method,
 		Headers:     task.Headers,
 		Payload:     task.Payload,
@@ -93,11 +101,15 @@ func (b *Base) DoAttempt(attempt *Attempt) (*Attempt, error) {
 	req.Header.Add("User-Agent", "Hooky")
 	req.Header.Add("X-Hooky-Account", attempt.Account.Hex())
 	req.Header.Add("X-Hooky-Application", attempt.Application)
+	req.Header.Add("X-Hooky-Queue", attempt.Queue)
 	req.Header.Add("X-Hooky-Task-Name", attempt.Task)
 	req.Header.Add("X-Hooky-Attempt-ID", attempt.ID.Hex())
 	req.Header.Add("Content-Type", contentType)
 	for k, v := range attempt.Headers {
 		req.Header.Add(k, v)
+	}
+	if attempt.HTTPAuth.Username != "" || attempt.HTTPAuth.Password != "" {
+		req.SetBasicAuth(attempt.HTTPAuth.Username, attempt.HTTPAuth.Password)
 	}
 	var status string
 	var statusMessage string

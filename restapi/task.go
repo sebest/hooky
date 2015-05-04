@@ -17,17 +17,23 @@ type Task struct {
 	// Account is the ID of the Account owning the Task.
 	Account string `json:"account"`
 
-	// Application is the name of the parent application.
-	Application string `json:"application,omitempty"`
+	// Application is the name of the parent Application.
+	Application string `json:"application"`
+
+	// Queue is the name of the parent Queue.
+	Queue string `json:"queue"`
 
 	// Name is the task's name.
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 
 	// Created is the date schedule the Task was created.
 	Created string `json:"created"`
 
 	// URL is the URL that the worker with requests.
 	URL string `json:"url"`
+
+	// HTTPAuth is the HTTP authentication to use if any.
+	HTTPAuth models.HTTPAuth `json:"auth"`
 
 	// Method is the HTTP method that will be used to execute the request.
 	Method string `json:"method"`
@@ -79,9 +85,11 @@ func NewTaskFromModel(task *models.Task) *Task {
 		ID:          task.ID.Hex(),
 		Application: task.Application,
 		Account:     task.Account.Hex(),
+		Queue:       task.Queue,
 		Name:        task.Name,
 		URL:         task.URL,
 		Method:      task.Method,
+		HTTPAuth:    task.HTTPAuth,
 		Headers:     task.Headers,
 		Payload:     task.Payload,
 		Schedule:    task.Schedule,
@@ -99,17 +107,24 @@ func NewTaskFromModel(task *models.Task) *Task {
 	}
 }
 
-func taskParams(r *rest.Request) (bson.ObjectId, string, string, error) {
+func taskParams(r *rest.Request) (bson.ObjectId, string, string, string, error) {
 	// TODO handle errors
 	accountID := bson.ObjectIdHex(r.PathParam("account"))
 	applicationName := r.PathParam("application")
+	if applicationName == "" {
+		applicationName = "default"
+	}
+	queueName := r.PathParam("application")
+	if queueName == "" {
+		queueName = "default"
+	}
 	taskName := r.PathParam("task")
-	return accountID, applicationName, taskName, nil
+	return accountID, applicationName, queueName, taskName, nil
 }
 
 // PutTask ...
 func PutTask(w rest.ResponseWriter, r *rest.Request) {
-	accountID, applicationName, taskName, err := taskParams(r)
+	accountID, applicationName, queueName, taskName, err := taskParams(r)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -121,7 +136,7 @@ func PutTask(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 	b := GetBase(r)
-	task, err := b.NewTask(accountID, applicationName, taskName, rt.URL, rt.Method, rt.Headers, rt.Payload, rt.Schedule, rt.Retry)
+	task, err := b.NewTask(accountID, applicationName, queueName, taskName, rt.URL, rt.HTTPAuth, rt.Method, rt.Headers, rt.Payload, rt.Schedule, rt.Retry)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -131,14 +146,14 @@ func PutTask(w rest.ResponseWriter, r *rest.Request) {
 
 // GetTask ...
 func GetTask(w rest.ResponseWriter, r *rest.Request) {
-	accountID, applicationName, taskName, err := taskParams(r)
+	accountID, applicationName, queueName, taskName, err := taskParams(r)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	b := GetBase(r)
-	task, err := b.GetTask(accountID, applicationName, taskName)
+	task, err := b.GetTask(accountID, applicationName, queueName, taskName)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -152,14 +167,14 @@ func GetTask(w rest.ResponseWriter, r *rest.Request) {
 
 // DeleteTasks ...
 func DeleteTasks(w rest.ResponseWriter, r *rest.Request) {
-	accountID, applicationName, _, err := taskParams(r)
+	accountID, applicationName, queueName, _, err := taskParams(r)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	b := GetBase(r)
-	err = b.DeleteTasks(accountID, applicationName)
+	err = b.DeleteTasks(accountID, queueName, applicationName)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -168,14 +183,14 @@ func DeleteTasks(w rest.ResponseWriter, r *rest.Request) {
 
 // DeleteTask ...
 func DeleteTask(w rest.ResponseWriter, r *rest.Request) {
-	accountID, applicationName, taskName, err := taskParams(r)
+	accountID, applicationName, taskName, queueName, err := taskParams(r)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	b := GetBase(r)
-	err = b.DeleteTask(accountID, applicationName, taskName)
+	err = b.DeleteTask(accountID, applicationName, queueName, taskName)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return

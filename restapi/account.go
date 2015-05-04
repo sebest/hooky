@@ -39,6 +39,16 @@ func PostAccount(w rest.ResponseWriter, r *rest.Request) {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	_, err = b.NewApplication(account.ID, "default")
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_, err = b.NewQueue(account.ID, "default", "default")
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.WriteJson(NewAccountFromModel(account))
 }
 

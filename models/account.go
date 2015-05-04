@@ -81,8 +81,10 @@ func (b *Base) DeleteAccount(account bson.ObjectId) (err error) {
 			"account": account,
 		}
 		if _, err = b.db.C("applications").UpdateAll(query, update); err == nil {
-			if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
-				_, err = b.db.C("attempts").UpdateAll(query, update)
+			if _, err = b.db.C("queues").UpdateAll(query, update); err == nil {
+				if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
+					_, err = b.db.C("attempts").UpdateAll(query, update)
+				}
 			}
 		}
 	}

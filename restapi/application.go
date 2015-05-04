@@ -24,6 +24,9 @@ func applicationParams(r *rest.Request) (bson.ObjectId, string, error) {
 	// TODO handle errors
 	accountID := bson.ObjectIdHex(r.PathParam("account"))
 	applicationName := r.PathParam("application")
+	if applicationName == "" {
+		applicationName = "default"
+	}
 	return accountID, applicationName, nil
 }
 

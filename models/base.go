@@ -14,5 +14,6 @@ func NewBase(db *mgo.Database) *Base {
 
 func (b *Base) EnsureIndex() {
 	b.EnsureApplicationIndex()
+	b.EnsureQueueIndex()
 	b.EnsureTaskIndex()
 }

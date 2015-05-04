@@ -83,12 +83,16 @@ func New(s *store.Store) (*rest.Api, error) {
 		// rest.Get("/accounts/:account/applications/:application", GetApplication),
 		rest.Put("/accounts/:account/applications/:application", PutApplication),
 		rest.Delete("/accounts/:account/applications/:application", DeleteApplication),
-		rest.Post("/accounts/:account/applications/:application/tasks", PutTask),
-		rest.Delete("/accounts/:account/applications/:application/tasks", DeleteTasks),
-		rest.Put("/accounts/:account/applications/:application/tasks/:task", PutTask),
-		rest.Get("/accounts/:account/applications/:application/tasks/:task", GetTask),
-		rest.Delete("/accounts/:account/applications/:application/tasks/:task", DeleteTask),
-		// rest.Get("/accounts/:account/applications/:application/tasks/:task/attempts", GetAttempts),
+		rest.Put("/accounts/:account/applications/:application/queue/:queue", PutQueue),
+		rest.Delete("/accounts/:account/applications/:application/queues/:queue", DeleteQueue),
+		// rest.Get("/accounts/:account/applications/:application/queues/:queue", GetQueue),
+		rest.Delete("/accounts/:account/applications/:application/queues", DeleteQueues),
+		rest.Post("/accounts/:account/applications/:application/queues/:queue/tasks", PutTask),
+		rest.Delete("/accounts/:account/applications/:application/queues/:queue/tasks", DeleteTasks),
+		rest.Put("/accounts/:account/applications/:application/queues/:queue/tasks/:task", PutTask),
+		rest.Get("/accounts/:account/applications/:application/queues/:queue/tasks/:task", GetTask),
+		rest.Delete("/accounts/:account/applications/:application/queues/:queue/tasks/:task", DeleteTask),
+		// rest.Get("/accounts/:account/applications/:application/queues/:queue/tasks/:task/attempts", GetAttempts),
 	)
 	if err != nil {
 		return nil, err
