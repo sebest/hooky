@@ -3,6 +3,7 @@ package models
 import (
 	"math/rand"
 
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -13,6 +14,9 @@ type Account struct {
 
 	// Key is the secret key to authenticate the Account ID.
 	Key string `bson:"key"`
+
+	// Deleted
+	Deleted bool `bson:"deleted"`
 }
 
 // NewAccount creates a new Account.
@@ -27,7 +31,11 @@ func (b *Base) NewAccount() (account *Account, err error) {
 
 //AuthenticateAccount authenticates an Account.
 func (b *Base) AuthenticateAccount(account bson.ObjectId, key string) (bool, error) {
-	query := bson.M{"_id": account, "key": key}
+	query := bson.M{
+		"_id":     account,
+		"key":     key,
+		"deleted": false,
+	}
 	n, err := b.db.C("accounts").Find(query).Count()
 	if err != nil {
 		return false, err
@@ -43,4 +51,40 @@ func randKey(n int) string {
 		b[i] = chars[rand.Intn(len(chars))]
 	}
 	return string(b)
+}
+
+// GetAccount returns a Acc given its ID.
+func (b *Base) GetAccount(accountID bson.ObjectId) (account *Account, err error) {
+	query := bson.M{
+		"_id":     accountID,
+		"deleted": false,
+	}
+	account = &Account{}
+	err = b.db.C("accounts").Find(query).One(account)
+	if err == mgo.ErrNotFound {
+		err = nil
+		account = nil
+	}
+	return
+}
+
+// DeleteAccount deletes an Account given its ID.
+func (b *Base) DeleteAccount(account bson.ObjectId) (err error) {
+	update := bson.M{
+		"$set": bson.M{
+			"deleted": true,
+		},
+	}
+	err = b.db.C("accounts").UpdateId(account, update)
+	if err == nil {
+		query := bson.M{
+			"account": account,
+		}
+		if _, err = b.db.C("applications").UpdateAll(query, update); err == nil {
+			if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
+				_, err = b.db.C("attempts").UpdateAll(query, update)
+			}
+		}
+	}
+	return
 }

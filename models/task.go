@@ -133,19 +133,19 @@ func (b *Base) NewTask(account bson.ObjectId, application string, name string, U
 
 	// Create a new `Task` and store it.
 	task = &Task{
-		ID:       taskID,
-		Account:  account,
-		Application:  application,
-		Name:     name,
-		URL:      URL,
-		Method:   method,
-		Headers:  headers,
-		Payload:  payload,
-		At:       at,
-		Status:   "pending",
-		Active:   at > 0,
-		Schedule: schedule,
-		Retry:    retry,
+		ID:          taskID,
+		Account:     account,
+		Application: application,
+		Name:        name,
+		URL:         URL,
+		Method:      method,
+		Headers:     headers,
+		Payload:     payload,
+		At:          at,
+		Status:      "pending",
+		Active:      at > 0,
+		Schedule:    schedule,
+		Retry:       retry,
 	}
 	err = b.db.C("tasks").Insert(task)
 	if mgo.IsDup(err) {
@@ -164,7 +164,12 @@ func (b *Base) NewTask(account bson.ObjectId, application string, name string, U
 			},
 			ReturnNew: true,
 		}
-		_, err = b.db.C("tasks").Find(bson.M{"application": application}).Apply(change, task)
+		query := bson.M{
+			"account":     account,
+			"application": application,
+			"name":        name,
+		}
+		_, err = b.db.C("tasks").Find(query).Apply(change, task)
 		if err == nil {
 			err = b.DeletePendingAttempts(task.ID)
 		}
@@ -178,9 +183,10 @@ func (b *Base) NewTask(account bson.ObjectId, application string, name string, U
 // GetTask returns a Task.
 func (b *Base) GetTask(account bson.ObjectId, application string, name string) (task *Task, err error) {
 	query := bson.M{
-		"account": account,
+		"account":     account,
 		"application": application,
-		"name":    name,
+		"name":        name,
+		"deleted":     false,
 	}
 	task = &Task{}
 	err = b.db.C("tasks").Find(query).One(task)
@@ -253,42 +259,43 @@ func (b *Base) NextAttemptForTask(taskID bson.ObjectId, status string) (attempt 
 	return
 }
 
-// DeleteTask deletes a Task.
-func (b *Base) DeleteTask(account bson.ObjectId, application string, name string) (err error) {
-	task := &Task{}
+// DeleteTasks deletes all Tasks from an Application.
+func (b *Base) DeleteTasks(account bson.ObjectId, application string) (err error) {
 	query := bson.M{
-		"account": account,
+		"account":     account,
 		"application": application,
-		"name":    name,
-	}
-	change := mgo.Change{
-		Update: bson.M{
-			"$set": bson.M{
-				"deleted": true,
-			},
-		},
-		ReturnNew: true,
-	}
-	if _, err = b.db.C("tasks").Find(query).Apply(change, task); err != nil {
-		return
-	}
-	if err = b.DeleteAllAttempts(task.ID); err != nil {
-		return
-	}
-	return
-}
-
-// DeleteTaskByID deletes a Task given its ID.
-func (b *Base) DeleteTaskByID(taskID bson.ObjectId) (err error) {
-	if err = b.DeleteAllAttempts(taskID); err != nil {
-		return
 	}
 	update := bson.M{
 		"$set": bson.M{
 			"deleted": true,
 		},
 	}
-	err = b.db.C("tasks").UpdateId(taskID, update)
+	if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
+		_, err = b.db.C("attempts").UpdateAll(query, update)
+	}
+	return
+}
+
+// DeleteTask deletes a Task.
+func (b *Base) DeleteTask(account bson.ObjectId, application string, task string) (err error) {
+	query := bson.M{
+		"account":     account,
+		"application": application,
+		"name":        task,
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"deleted": true,
+		},
+	}
+	if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
+		query := bson.M{
+			"account":     account,
+			"application": application,
+			"task":        task,
+		}
+		_, err = b.db.C("attempts").UpdateAll(query, update)
+	}
 	return
 }
 

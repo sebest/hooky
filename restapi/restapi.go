@@ -9,7 +9,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-func GetAccount(r *rest.Request) *bson.ObjectId {
+func GetCuurentAccount(r *rest.Request) *bson.ObjectId {
 	if rv, ok := r.Env["REMOTE_USER"]; ok {
 		id := bson.ObjectIdHex(rv.(string))
 		return &id
@@ -75,19 +75,20 @@ func New(s *store.Store) (*rest.Api, error) {
 		Authorizator:  authorize,
 	})
 	router, err := rest.MakeRouter(
-		// Rename
-		// accounts -> services
-		// applications -> applications
 		rest.Post("/accounts", PostAccount),
+		rest.Get("/accounts/:account", GetAccount),
+		rest.Delete("/accounts/:account", DeleteAccount),
+		rest.Delete("/accounts/:account/applications", DeleteApplications),
 		// rest.Get("/accounts/:account/applications", GetApplications),
-		// rest.Delete("/accounts/:account/applications", DeleteApplications),
-		rest.Put("/accounts/:account/applications/:application", PutApplication),
 		// rest.Get("/accounts/:account/applications/:application", GetApplication),
-		// rest.Delete("/accounts/:account/applications/:application", DeleteApplication),
+		rest.Put("/accounts/:account/applications/:application", PutApplication),
+		rest.Delete("/accounts/:account/applications/:application", DeleteApplication),
 		rest.Post("/accounts/:account/applications/:application/tasks", PutTask),
+		rest.Delete("/accounts/:account/applications/:application/tasks", DeleteTasks),
 		rest.Put("/accounts/:account/applications/:application/tasks/:task", PutTask),
 		rest.Get("/accounts/:account/applications/:application/tasks/:task", GetTask),
 		rest.Delete("/accounts/:account/applications/:application/tasks/:task", DeleteTask),
+		// rest.Get("/accounts/:account/applications/:application/tasks/:task/attempts", GetAttempts),
 	)
 	if err != nil {
 		return nil, err

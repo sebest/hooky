@@ -15,6 +15,15 @@ type Attempt struct {
 	// ID is the ID of the attempt.
 	ID bson.ObjectId `bson:"_id"`
 
+	// Account is the ID of the Account owning the Task.
+	Account bson.ObjectId `bson:"account"`
+
+	// Application is the name of the parent application.
+	Application string `bson:"application"`
+
+	// Task is the task's name.
+	Task string `bson:"task"`
+
 	// taskID is the ID of the parent Webtask of this attempt.
 	TaskID bson.ObjectId `bson:"task_id"`
 
@@ -49,14 +58,17 @@ type Attempt struct {
 // NewAttempt creates a new Attempt.
 func (b *Base) NewAttempt(task *Task) (*Attempt, error) {
 	attempt := &Attempt{
-		ID:       bson.NewObjectId(),
-		TaskID:   task.ID,
-		URL:      task.URL,
-		Method:   task.Method,
-		Headers:  task.Headers,
-		Payload:  task.Payload,
-		Reserved: task.At,
-		Status:   "pending",
+		ID:          bson.NewObjectId(),
+		TaskID:      task.ID,
+		Account:     task.Account,
+		Application: task.Application,
+		Task:        task.Name,
+		URL:         task.URL,
+		Method:      task.Method,
+		Headers:     task.Headers,
+		Payload:     task.Payload,
+		Reserved:    task.At,
+		Status:      "pending",
 	}
 	if err := b.db.C("attempts").Insert(attempt); err != nil {
 		return nil, err
@@ -79,7 +91,9 @@ func (b *Base) DoAttempt(attempt *Attempt) (*Attempt, error) {
 		return nil, err
 	}
 	req.Header.Add("User-Agent", "Hooky")
-	req.Header.Add("X-Hooky-Task-ID", attempt.TaskID.Hex())
+	req.Header.Add("X-Hooky-Account", attempt.Account.Hex())
+	req.Header.Add("X-Hooky-Application", attempt.Application)
+	req.Header.Add("X-Hooky-Task-Name", attempt.Task)
 	req.Header.Add("X-Hooky-Attempt-ID", attempt.ID.Hex())
 	req.Header.Add("Content-Type", contentType)
 	for k, v := range attempt.Headers {

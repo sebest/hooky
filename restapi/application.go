@@ -5,6 +5,7 @@ import (
 
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/sebest/hooky/models"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // Application is a list of Tasks with a common application Name.
@@ -19,6 +20,13 @@ type Application struct {
 	Name string `json:"name"`
 }
 
+func applicationParams(r *rest.Request) (bson.ObjectId, string, error) {
+	// TODO handle errors
+	accountID := bson.ObjectIdHex(r.PathParam("account"))
+	applicationName := r.PathParam("application")
+	return accountID, applicationName, nil
+}
+
 // NewApplicationFromModel returns a Application object for use with the Rest API
 // from a Application model.
 func NewApplicationFromModel(application *models.Application) *Application {
@@ -31,15 +39,19 @@ func NewApplicationFromModel(application *models.Application) *Application {
 
 // PutApplication ...
 func PutApplication(w rest.ResponseWriter, r *rest.Request) {
-	name := r.PathParam("name")
+	accountID, applicationName, err := applicationParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	rc := &Application{}
 	if err := r.DecodeJsonPayload(rc); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	b := GetBase(r)
-	account := GetAccount(r)
-	application, err := b.NewApplication(*account, name)
+	application, err := b.NewApplication(accountID, applicationName)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -47,24 +59,30 @@ func PutApplication(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(NewApplicationFromModel(application))
 }
 
-// GetApplication ...
-// func GetApplication(w rest.ResponseWriter, r *rest.Request) {
-// 	name := r.PathParam("name")
-// 	b := models.GetBase(r)
-// 	tasks, err := b.ApplicationGet(name)
-// 	if err != nil {
-// 		rest.Error(w, err.Error(), http.StatusInternalServerError)
-// 		return
-// 	}
-// 	if len(tasks) == 0 {
-// 		rest.NotFound(w, r)
-// 		return
-// 	}
-// 	rc := &Application{
-// 		Tasks: make([]*Task, len(tasks)),
-// 	}
-// 	for idx, task := range tasks {
-// 		rc.Tasks[idx] = NewTaskFromModel(task)
-// 	}
-// 	w.WriteJson(rc)
-// }
+// DeleteApplications ...
+func DeleteApplications(w rest.ResponseWriter, r *rest.Request) {
+	accountID, _, err := applicationParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b := GetBase(r)
+	if err := b.DeleteApplications(accountID); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// DeleteApplication ...
+func DeleteApplication(w rest.ResponseWriter, r *rest.Request) {
+	accountID, applicationName, err := applicationParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b := GetBase(r)
+	if err := b.DeleteApplication(accountID, applicationName); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}

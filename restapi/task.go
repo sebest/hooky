@@ -143,19 +143,27 @@ func GetTask(w rest.ResponseWriter, r *rest.Request) {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if task == nil {
+		rest.NotFound(w, r)
+		return
+	}
 	w.WriteJson(NewTaskFromModel(task))
 }
 
-// GetTaskByID ...
-func GetTaskByID(w rest.ResponseWriter, r *rest.Request) {
-	taskID := r.PathParam("id")
-	b := GetBase(r)
-	task, err := b.GetTaskByID(bson.ObjectIdHex(taskID))
+// DeleteTasks ...
+func DeleteTasks(w rest.ResponseWriter, r *rest.Request) {
+	accountID, applicationName, _, err := taskParams(r)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.WriteJson(NewTaskFromModel(task))
+
+	b := GetBase(r)
+	err = b.DeleteTasks(accountID, applicationName)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 // DeleteTask ...
@@ -168,17 +176,6 @@ func DeleteTask(w rest.ResponseWriter, r *rest.Request) {
 
 	b := GetBase(r)
 	err = b.DeleteTask(accountID, applicationName, taskName)
-	if err != nil {
-		rest.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-// DeleteTaskByID ...
-func DeleteTaskByID(w rest.ResponseWriter, r *rest.Request) {
-	taskID := r.PathParam("id")
-	b := GetBase(r)
-	err := b.DeleteTaskByID(bson.ObjectIdHex(taskID))
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
