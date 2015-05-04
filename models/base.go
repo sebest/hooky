@@ -13,6 +13,6 @@ func NewBase(db *mgo.Database) *Base {
 }
 
 func (b *Base) EnsureIndex() {
-	b.EnsureCrontabIndex()
+	b.EnsureApplicationIndex()
 	b.EnsureTaskIndex()
 }

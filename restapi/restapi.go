@@ -54,7 +54,7 @@ func authenticate(account string, key string, r *rest.Request) bool {
 }
 
 func authorize(account string, r *rest.Request) bool {
-	// TODO check crontab id
+	// TODO check application id
 	return true
 }
 
@@ -77,17 +77,17 @@ func New(s *store.Store) (*rest.Api, error) {
 	router, err := rest.MakeRouter(
 		// Rename
 		// accounts -> services
-		// crontabs -> applications
+		// applications -> applications
 		rest.Post("/accounts", PostAccount),
-		// rest.Get("/accounts/:account/crontabs", GetCrontabs),
-		// rest.Delete("/accounts/:account/crontabs", DeleteCrontabs),
-		rest.Put("/accounts/:account/crontabs/:crontab", PutCrontab),
-		// rest.Get("/accounts/:account/crontabs/:crontab", GetCrontab),
-		// rest.Delete("/accounts/:account/crontabs/:crontab", DeleteCrontab),
-		rest.Post("/accounts/:account/crontabs/:crontab/tasks", PutTask),
-		rest.Put("/accounts/:account/crontabs/:crontab/tasks/:task", PutTask),
-		rest.Get("/accounts/:account/crontabs/:crontab/tasks/:task", GetTask),
-		rest.Delete("/accounts/:account/crontabs/:crontab/tasks/:task", DeleteTask),
+		// rest.Get("/accounts/:account/applications", GetApplications),
+		// rest.Delete("/accounts/:account/applications", DeleteApplications),
+		rest.Put("/accounts/:account/applications/:application", PutApplication),
+		// rest.Get("/accounts/:account/applications/:application", GetApplication),
+		// rest.Delete("/accounts/:account/applications/:application", DeleteApplication),
+		rest.Post("/accounts/:account/applications/:application/tasks", PutTask),
+		rest.Put("/accounts/:account/applications/:application/tasks/:task", PutTask),
+		rest.Get("/accounts/:account/applications/:application/tasks/:task", GetTask),
+		rest.Delete("/accounts/:account/applications/:application/tasks/:task", DeleteTask),
 	)
 	if err != nil {
 		return nil, err

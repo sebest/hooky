@@ -17,8 +17,8 @@ type Task struct {
 	// Account is the ID of the Account owning the Task.
 	Account string `json:"account"`
 
-	// Crontab is the name of the parent crontab.
-	Crontab string `json:"crontab,omitempty"`
+	// Application is the name of the parent application.
+	Application string `json:"application,omitempty"`
 
 	// Name is the task's name.
 	Name string `json:"name,omitempty"`
@@ -77,7 +77,7 @@ type Task struct {
 func NewTaskFromModel(task *models.Task) *Task {
 	return &Task{
 		ID:          task.ID.Hex(),
-		Crontab:     task.Crontab,
+		Application: task.Application,
 		Account:     task.Account.Hex(),
 		Name:        task.Name,
 		URL:         task.URL,
@@ -102,14 +102,14 @@ func NewTaskFromModel(task *models.Task) *Task {
 func taskParams(r *rest.Request) (bson.ObjectId, string, string, error) {
 	// TODO handle errors
 	accountID := bson.ObjectIdHex(r.PathParam("account"))
-	crontabName := r.PathParam("crontab")
+	applicationName := r.PathParam("application")
 	taskName := r.PathParam("task")
-	return accountID, crontabName, taskName, nil
+	return accountID, applicationName, taskName, nil
 }
 
 // PutTask ...
 func PutTask(w rest.ResponseWriter, r *rest.Request) {
-	accountID, crontabName, taskName, err := taskParams(r)
+	accountID, applicationName, taskName, err := taskParams(r)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -121,7 +121,7 @@ func PutTask(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 	b := GetBase(r)
-	task, err := b.NewTask(accountID, crontabName, taskName, rt.URL, rt.Method, rt.Headers, rt.Payload, rt.Schedule, rt.Retry)
+	task, err := b.NewTask(accountID, applicationName, taskName, rt.URL, rt.Method, rt.Headers, rt.Payload, rt.Schedule, rt.Retry)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -131,14 +131,14 @@ func PutTask(w rest.ResponseWriter, r *rest.Request) {
 
 // GetTask ...
 func GetTask(w rest.ResponseWriter, r *rest.Request) {
-	accountID, crontabName, taskName, err := taskParams(r)
+	accountID, applicationName, taskName, err := taskParams(r)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	b := GetBase(r)
-	task, err := b.GetTask(accountID, crontabName, taskName)
+	task, err := b.GetTask(accountID, applicationName, taskName)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -160,14 +160,14 @@ func GetTaskByID(w rest.ResponseWriter, r *rest.Request) {
 
 // DeleteTask ...
 func DeleteTask(w rest.ResponseWriter, r *rest.Request) {
-	accountID, crontabName, taskName, err := taskParams(r)
+	accountID, applicationName, taskName, err := taskParams(r)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	b := GetBase(r)
-	err = b.DeleteTask(accountID, crontabName, taskName)
+	err = b.DeleteTask(accountID, applicationName, taskName)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return

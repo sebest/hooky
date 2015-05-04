@@ -17,8 +17,8 @@ type Task struct {
 	// Account is the ID of the Account owning the Task.
 	Account bson.ObjectId `bson:"account"`
 
-	// Crontab is the name of the parent crontab.
-	Crontab string `bson:"crontab"`
+	// Application is the name of the parent application.
+	Application string `bson:"application"`
 
 	// Name is the task's name.
 	Name string `bson:"name"`
@@ -86,10 +86,10 @@ func nextRun(schedule string) (int64, error) {
 }
 
 // NewTask creates a new Task.
-func (b *Base) NewTask(account bson.ObjectId, crontab string, name string, URL string, method string, headers map[string]string, payload string, schedule string, retry Retry) (task *Task, err error) {
+func (b *Base) NewTask(account bson.ObjectId, application string, name string, URL string, method string, headers map[string]string, payload string, schedule string, retry Retry) (task *Task, err error) {
 	taskID := bson.NewObjectId()
-	if crontab == "" {
-		crontab = "default"
+	if application == "" {
+		application = "default"
 	}
 	if name == "" {
 		name = taskID.Hex()
@@ -135,7 +135,7 @@ func (b *Base) NewTask(account bson.ObjectId, crontab string, name string, URL s
 	task = &Task{
 		ID:       taskID,
 		Account:  account,
-		Crontab:  crontab,
+		Application:  application,
 		Name:     name,
 		URL:      URL,
 		Method:   method,
@@ -164,7 +164,7 @@ func (b *Base) NewTask(account bson.ObjectId, crontab string, name string, URL s
 			},
 			ReturnNew: true,
 		}
-		_, err = b.db.C("tasks").Find(bson.M{"crontab": crontab}).Apply(change, task)
+		_, err = b.db.C("tasks").Find(bson.M{"application": application}).Apply(change, task)
 		if err == nil {
 			err = b.DeletePendingAttempts(task.ID)
 		}
@@ -176,10 +176,10 @@ func (b *Base) NewTask(account bson.ObjectId, crontab string, name string, URL s
 }
 
 // GetTask returns a Task.
-func (b *Base) GetTask(account bson.ObjectId, crontab string, name string) (task *Task, err error) {
+func (b *Base) GetTask(account bson.ObjectId, application string, name string) (task *Task, err error) {
 	query := bson.M{
 		"account": account,
-		"crontab": crontab,
+		"application": application,
 		"name":    name,
 	}
 	task = &Task{}
@@ -254,11 +254,11 @@ func (b *Base) NextAttemptForTask(taskID bson.ObjectId, status string) (attempt 
 }
 
 // DeleteTask deletes a Task.
-func (b *Base) DeleteTask(account bson.ObjectId, crontab string, name string) (err error) {
+func (b *Base) DeleteTask(account bson.ObjectId, application string, name string) (err error) {
 	task := &Task{}
 	query := bson.M{
 		"account": account,
-		"crontab": crontab,
+		"application": application,
 		"name":    name,
 	}
 	change := mgo.Change{
@@ -292,10 +292,10 @@ func (b *Base) DeleteTaskByID(taskID bson.ObjectId) (err error) {
 	return
 }
 
-// EnsureTaskIndex creates mongo indexes for Crontab.
+// EnsureTaskIndex creates mongo indexes for Application.
 func (b *Base) EnsureTaskIndex() {
 	index := mgo.Index{
-		Key:        []string{"account", "crontab", "name"},
+		Key:        []string{"account", "application", "name"},
 		Unique:     true,
 		Background: false,
 		Sparse:     true,
