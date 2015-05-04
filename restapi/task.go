@@ -14,8 +14,14 @@ type Task struct {
 	// ID is the Task ID.
 	ID string `json:"id"`
 
+	// Account is the ID of the Account owning the Task.
+	Account string `json:"account"`
+
 	// Crontab is the name of the parent crontab.
 	Crontab string `json:"crontab,omitempty"`
+
+	// Name is the task's name.
+	Name string `json:"name,omitempty"`
 
 	// Created is the date schedule the Task was created.
 	Created string `json:"created"`
@@ -67,16 +73,19 @@ type Task struct {
 }
 
 // NewTaskFromModel returns a Task object for use with the Rest API
-// from a Task from the model.
+// from a Task model.
 func NewTaskFromModel(task *models.Task) *Task {
 	return &Task{
+		ID:          task.ID.Hex(),
+		Crontab:     task.Crontab,
+		Account:     task.Account.Hex(),
+		Name:        task.Name,
 		URL:         task.URL,
 		Method:      task.Method,
 		Headers:     task.Headers,
 		Payload:     task.Payload,
 		Schedule:    task.Schedule,
 		At:          UnixToRFC3339(int64(task.At / 1000000000)),
-		ID:          task.ID.Hex(),
 		Created:     task.ID.Time().UTC().Format(time.RFC3339),
 		Status:      task.Status,
 		Executed:    UnixToRFC3339(task.Executed),
@@ -90,14 +99,29 @@ func NewTaskFromModel(task *models.Task) *Task {
 	}
 }
 
-// PostTask handles POST requests on /tasks
-func (ra *RestAPI) PostTask(w rest.ResponseWriter, r *rest.Request) {
+func taskParams(r *rest.Request) (bson.ObjectId, string, string, error) {
+	// TODO handle errors
+	accountID := bson.ObjectIdHex(r.PathParam("account"))
+	crontabName := r.PathParam("crontab")
+	taskName := r.PathParam("task")
+	return accountID, crontabName, taskName, nil
+}
+
+// PutTask ...
+func PutTask(w rest.ResponseWriter, r *rest.Request) {
+	accountID, crontabName, taskName, err := taskParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	rt := &Task{}
 	if err := r.DecodeJsonPayload(rt); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	task, err := ra.tm.New(rt.URL, rt.Method, rt.Headers, rt.Payload, rt.Schedule, rt.Retry, rt.Crontab)
+	b := GetBase(r)
+	task, err := b.NewTask(accountID, crontabName, taskName, rt.URL, rt.Method, rt.Headers, rt.Payload, rt.Schedule, rt.Retry)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -105,13 +129,58 @@ func (ra *RestAPI) PostTask(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(NewTaskFromModel(task))
 }
 
-// GetTask handles GET requests on /tasks/:taskID
-func (ra *RestAPI) GetTask(w rest.ResponseWriter, r *rest.Request) {
-	taskID := r.PathParam("taskID")
-	task, err := ra.tm.Get(bson.ObjectIdHex(taskID))
+// GetTask ...
+func GetTask(w rest.ResponseWriter, r *rest.Request) {
+	accountID, crontabName, taskName, err := taskParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b := GetBase(r)
+	task, err := b.GetTask(accountID, crontabName, taskName)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteJson(NewTaskFromModel(task))
+}
+
+// GetTaskByID ...
+func GetTaskByID(w rest.ResponseWriter, r *rest.Request) {
+	taskID := r.PathParam("id")
+	b := GetBase(r)
+	task, err := b.GetTaskByID(bson.ObjectIdHex(taskID))
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteJson(NewTaskFromModel(task))
+}
+
+// DeleteTask ...
+func DeleteTask(w rest.ResponseWriter, r *rest.Request) {
+	accountID, crontabName, taskName, err := taskParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b := GetBase(r)
+	err = b.DeleteTask(accountID, crontabName, taskName)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// DeleteTaskByID ...
+func DeleteTaskByID(w rest.ResponseWriter, r *rest.Request) {
+	taskID := r.PathParam("id")
+	b := GetBase(r)
+	err := b.DeleteTaskByID(bson.ObjectIdHex(taskID))
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }

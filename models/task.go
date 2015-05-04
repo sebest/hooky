@@ -5,18 +5,23 @@ import (
 	"time"
 
 	"github.com/robfig/cron"
-	"github.com/sebest/hooky/store"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
 // Task describes a Webtask.
 type Task struct {
-	// ID is the ID of the task.
-	ID bson.ObjectId `bson:"_id,omitempty"`
+	// ID is the ID of the Task.
+	ID bson.ObjectId `bson:"_id"`
+
+	// Account is the ID of the Account owning the Task.
+	Account bson.ObjectId `bson:"account"`
 
 	// Crontab is the name of the parent crontab.
-	Crontab string `bson:"crontab,omitempty"`
+	Crontab string `bson:"crontab"`
+
+	// Name is the task's name.
+	Name string `bson:"name"`
 
 	// URL is the URL that the worker with requests.
 	URL string `bson:"url"`
@@ -59,6 +64,9 @@ type Task struct {
 
 	// Retry is the retry strategy parameters in case of errors.
 	Retry Retry `bson:"retry"`
+
+	// Deleted
+	Deleted bool `bson:"deleted"`
 }
 
 // ErrorRate is the error rate of the task from 0 to 100 percent.
@@ -69,37 +77,6 @@ func (h *Task) ErrorRate() int {
 	return int(h.Errors * 100 / h.Executions)
 }
 
-// TasksManager ...
-type TasksManager struct {
-	store    *store.Store
-	Attempts *AttemptsManager
-}
-
-func (tm *TasksManager) init() {
-	db := tm.store.DB()
-	defer db.Session.Close()
-
-	index := mgo.Index{
-		Key:        []string{"crontab"},
-		Unique:     true,
-		Background: false,
-		Sparse:     true,
-	}
-	if err := db.C("tasks").EnsureIndex(index); err != nil {
-		fmt.Printf("Error creating index on tasks: %s\n", err)
-	}
-}
-
-// NewTasksManager ...
-func NewTasksManager(store *store.Store) *TasksManager {
-	tm := &TasksManager{
-		store:    store,
-		Attempts: NewAttemptsManager(store),
-	}
-	tm.init()
-	return tm
-}
-
 func nextRun(schedule string) (int64, error) {
 	sched, err := cron.Parse(schedule)
 	if err != nil {
@@ -108,8 +85,16 @@ func nextRun(schedule string) (int64, error) {
 	return sched.Next(time.Now().UTC()).UnixNano(), nil
 }
 
-// New creates a new Task.
-func (tm *TasksManager) New(URL string, method string, headers map[string]string, payload string, schedule string, retry Retry, crontab string) (task *Task, err error) {
+// NewTask creates a new Task.
+func (b *Base) NewTask(account bson.ObjectId, crontab string, name string, URL string, method string, headers map[string]string, payload string, schedule string, retry Retry) (task *Task, err error) {
+	taskID := bson.NewObjectId()
+	if crontab == "" {
+		crontab = "default"
+	}
+	if name == "" {
+		name = taskID.Hex()
+	}
+
 	// Default method is POST.
 	if method == "" {
 		method = "POST"
@@ -148,8 +133,10 @@ func (tm *TasksManager) New(URL string, method string, headers map[string]string
 
 	// Create a new `Task` and store it.
 	task = &Task{
-		ID:       bson.NewObjectId(),
+		ID:       taskID,
+		Account:  account,
 		Crontab:  crontab,
+		Name:     name,
 		URL:      URL,
 		Method:   method,
 		Headers:  headers,
@@ -160,9 +147,7 @@ func (tm *TasksManager) New(URL string, method string, headers map[string]string
 		Schedule: schedule,
 		Retry:    retry,
 	}
-	db := tm.store.DB()
-	defer db.Session.Close()
-	err = db.C("tasks").Insert(task)
+	err = b.db.C("tasks").Insert(task)
 	if mgo.IsDup(err) {
 		change := mgo.Change{
 			Update: bson.M{
@@ -179,32 +164,48 @@ func (tm *TasksManager) New(URL string, method string, headers map[string]string
 			},
 			ReturnNew: true,
 		}
-		_, err = db.C("tasks").Find(bson.M{"crontab": crontab}).Apply(change, task)
+		_, err = b.db.C("tasks").Find(bson.M{"crontab": crontab}).Apply(change, task)
 		if err == nil {
-			err = tm.Attempts.RemovePending(task.ID)
+			err = b.DeletePendingAttempts(task.ID)
 		}
 	}
 	if err == nil {
-		_, err = tm.Attempts.New(task)
+		_, err = b.NewAttempt(task)
 	}
 	return
 }
 
-// Get returns a Task given its ID.
-func (tm *TasksManager) Get(taskID bson.ObjectId) (task *Task, err error) {
-	db := tm.store.DB()
-	defer db.Session.Close()
+// GetTask returns a Task.
+func (b *Base) GetTask(account bson.ObjectId, crontab string, name string) (task *Task, err error) {
+	query := bson.M{
+		"account": account,
+		"crontab": crontab,
+		"name":    name,
+	}
 	task = &Task{}
-	err = db.C("tasks").FindId(taskID).One(task)
+	err = b.db.C("tasks").Find(query).One(task)
+	if err == mgo.ErrNotFound {
+		err = nil
+		task = nil
+	}
 	return
 }
 
-// NextAttempt enqueue the next Attempt if any and returns it.
-func (tm *TasksManager) NextAttempt(taskID bson.ObjectId, status string) (attempt *Attempt, err error) {
-	db := tm.store.DB()
-	defer db.Session.Close()
+// GetTaskByID returns a Task given its ID.
+func (b *Base) GetTaskByID(taskID bson.ObjectId) (task *Task, err error) {
+	task = &Task{}
+	err = b.db.C("tasks").FindId(taskID).One(task)
+	if err == mgo.ErrNotFound {
+		err = nil
+		task = nil
+	}
+	return
+}
+
+// NextAttemptForTask enqueue the next Attempt if any and returns it.
+func (b *Base) NextAttemptForTask(taskID bson.ObjectId, status string) (attempt *Attempt, err error) {
 	task := &Task{}
-	if err = db.C("tasks").FindId(taskID).One(task); err != nil {
+	if err = b.db.C("tasks").FindId(taskID).One(task); err != nil {
 		return nil, err
 	}
 	var at int64
@@ -245,9 +246,61 @@ func (tm *TasksManager) NextAttempt(taskID bson.ObjectId, status string) (attemp
 		},
 		ReturnNew: true,
 	}
-	_, err = db.C("tasks").FindId(taskID).Apply(change, task)
-	if task.Active && task.At != 0 {
-		attempt, err = tm.Attempts.New(task)
+	_, err = b.db.C("tasks").FindId(taskID).Apply(change, task)
+	if task.Active && task.At != 0 && !task.Deleted {
+		attempt, err = b.NewAttempt(task)
 	}
 	return
+}
+
+// DeleteTask deletes a Task.
+func (b *Base) DeleteTask(account bson.ObjectId, crontab string, name string) (err error) {
+	task := &Task{}
+	query := bson.M{
+		"account": account,
+		"crontab": crontab,
+		"name":    name,
+	}
+	change := mgo.Change{
+		Update: bson.M{
+			"$set": bson.M{
+				"deleted": true,
+			},
+		},
+		ReturnNew: true,
+	}
+	if _, err = b.db.C("tasks").Find(query).Apply(change, task); err != nil {
+		return
+	}
+	if err = b.DeleteAllAttempts(task.ID); err != nil {
+		return
+	}
+	return
+}
+
+// DeleteTaskByID deletes a Task given its ID.
+func (b *Base) DeleteTaskByID(taskID bson.ObjectId) (err error) {
+	if err = b.DeleteAllAttempts(taskID); err != nil {
+		return
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"deleted": true,
+		},
+	}
+	err = b.db.C("tasks").UpdateId(taskID, update)
+	return
+}
+
+// EnsureTaskIndex creates mongo indexes for Crontab.
+func (b *Base) EnsureTaskIndex() {
+	index := mgo.Index{
+		Key:        []string{"account", "crontab", "name"},
+		Unique:     true,
+		Background: false,
+		Sparse:     true,
+	}
+	if err := b.db.C("tasks").EnsureIndex(index); err != nil {
+		fmt.Printf("Error creating index on tasks: %s\n", err)
+	}
 }

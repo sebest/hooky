@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sebest/hooky/models"
 	"github.com/sebest/hooky/restapi"
 	"github.com/sebest/hooky/scheduler"
 	"github.com/sebest/hooky/store"
@@ -29,10 +28,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	tm := models.NewTasksManager(s)
-	sched := scheduler.New(tm, *maxMongoQuerier, *maxHTTPRequester, *touchInterval)
+	sched := scheduler.New(s, *maxMongoQuerier, *maxHTTPRequester, *touchInterval)
 	sched.Start()
-	ra, err := restapi.New(tm)
+	ra, err := restapi.New(s)
 	if err != nil {
 		log.Fatal(err)
 	}

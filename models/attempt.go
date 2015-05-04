@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sebest/hooky/store"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -15,6 +14,9 @@ import (
 type Attempt struct {
 	// ID is the ID of the attempt.
 	ID bson.ObjectId `bson:"_id"`
+
+	// taskID is the ID of the parent Webtask of this attempt.
+	TaskID bson.ObjectId `bson:"task_id"`
 
 	// URL is the URL that the worker with requests.
 	URL string `bson:"url"`
@@ -28,9 +30,6 @@ type Attempt struct {
 	// Payload is a arbitrary data that will be POSTed on the URL.
 	Payload string `bson:"payload"`
 
-	// taskID is the ID of the parent Webtask of this attempt.
-	TaskID bson.ObjectId `bson:"task_id"`
-
 	// Reserved is a Unix timestamp until when the attempt is reserved by a worker.
 	Reserved int64 `bson:"reserved"`
 
@@ -42,24 +41,13 @@ type Attempt struct {
 
 	// StatusMessage is a human readable message related to the Status.
 	StatusMessage string `bson:"status_message,omitempty"`
+
+	// Deleted
+	Deleted bool `bson:"deleted"`
 }
 
-// AttemptsManager manages the Tasks Attempts.
-type AttemptsManager struct {
-	store  *store.Store
-	client *http.Client
-}
-
-// NewAttemptsManager returns a new NewAttemptsManager.
-func NewAttemptsManager(store *store.Store) *AttemptsManager {
-	return &AttemptsManager{
-		store:  store,
-		client: &http.Client{},
-	}
-}
-
-// New creates a new Attempt.
-func (am *AttemptsManager) New(task *Task) (*Attempt, error) {
+// NewAttempt creates a new Attempt.
+func (b *Base) NewAttempt(task *Task) (*Attempt, error) {
 	attempt := &Attempt{
 		ID:       bson.NewObjectId(),
 		TaskID:   task.ID,
@@ -70,16 +58,14 @@ func (am *AttemptsManager) New(task *Task) (*Attempt, error) {
 		Reserved: task.At,
 		Status:   "pending",
 	}
-	db := am.store.DB()
-	defer db.Session.Close()
-	if err := db.C("attempts").Insert(attempt); err != nil {
+	if err := b.db.C("attempts").Insert(attempt); err != nil {
 		return nil, err
 	}
 	return attempt, nil
 }
 
-// Do executes the attempt.
-func (am *AttemptsManager) Do(attempt *Attempt) (*Attempt, error) {
+// DoAttempt executes the attempt.
+func (b *Base) DoAttempt(attempt *Attempt) (*Attempt, error) {
 	var data io.Reader
 	contentType := "text/plain"
 	if attempt.Method == "POST" && attempt.Payload != "" {
@@ -102,7 +88,9 @@ func (am *AttemptsManager) Do(attempt *Attempt) (*Attempt, error) {
 	var status string
 	var statusMessage string
 	var statusCode int
-	resp, err := am.client.Do(req)
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	defer resp.Body.Close()
 	if err != nil {
 		status = "error"
 		statusMessage = err.Error()
@@ -115,8 +103,6 @@ func (am *AttemptsManager) Do(attempt *Attempt) (*Attempt, error) {
 			status = "error"
 		}
 	}
-	db := am.store.DB()
-	defer db.Session.Close()
 	change := mgo.Change{
 		Update: bson.M{
 			"$set": bson.M{
@@ -127,44 +113,50 @@ func (am *AttemptsManager) Do(attempt *Attempt) (*Attempt, error) {
 		},
 		ReturnNew: true,
 	}
-	_, err = db.C("attempts").FindId(attempt.ID).Apply(change, attempt)
+	_, err = b.db.C("attempts").FindId(attempt.ID).Apply(change, attempt)
 	if err != nil {
 		return nil, err
 	}
 	return attempt, nil
 }
 
-// Touch reserves an attemptsttempt for more time.
-func (am *AttemptsManager) Touch(attemptID bson.ObjectId, seconds int64) error {
-	update := bson.M{"$set": bson.M{"reserved": time.Now().UnixNano() + (seconds * 1000000000)}}
-	db := am.store.DB()
-	defer db.Session.Close()
-	return db.C("attempts").UpdateId(attemptID, update)
+// TouchAttempt reserves an attemptsttempt for more time.
+func (b *Base) TouchAttempt(attemptID bson.ObjectId, seconds int64) error {
+	update := bson.M{
+		"$set": bson.M{
+			"reserved": time.Now().UnixNano() + (seconds * 1000000000),
+		},
+	}
+	return b.db.C("attempts").UpdateId(attemptID, update)
 }
 
-// Get returns an Attempt.
-func (am *AttemptsManager) Get(attemptID bson.ObjectId) (*Attempt, error) {
-	db := am.store.DB()
-	defer db.Session.Close()
+// GetAttempt returns an Attempt.
+func (b *Base) GetAttempt(attemptID bson.ObjectId) (*Attempt, error) {
 	attempt := &Attempt{}
-	if err := db.C("attempts").FindId(attemptID).One(attempt); err != nil {
+	if err := b.db.C("attempts").FindId(attemptID).One(attempt); err != nil {
 		return nil, err
 	}
 	return attempt, nil
 }
 
-// Next reserves and returns the next Attempt.
-func (am *AttemptsManager) Next(ttr int64) (*Attempt, error) {
+// NextAttempt reserves and returns the next Attempt.
+func (b *Base) NextAttempt(ttr int64) (*Attempt, error) {
 	now := time.Now().UnixNano()
 	change := mgo.Change{
-		Update:    bson.M{"$set": bson.M{"reserved": now + (ttr * 1000000000)}},
+		Update: bson.M{
+			"$set": bson.M{
+				"reserved": now + (ttr * 1000000000),
+			},
+		},
 		ReturnNew: true,
 	}
-	query := bson.M{"status": "pending", "reserved": bson.M{"$lt": now}}
+	query := bson.M{
+		"status":   "pending",
+		"reserved": bson.M{"$lt": now},
+		"deleted":  false,
+	}
 	attempt := &Attempt{}
-	db := am.store.DB()
-	defer db.Session.Close()
-	_, err := db.C("attempts").Find(query).Apply(change, attempt)
+	_, err := b.db.C("attempts").Find(query).Apply(change, attempt)
 	if err == mgo.ErrNotFound {
 		return nil, nil
 	} else if err != nil {
@@ -173,11 +165,31 @@ func (am *AttemptsManager) Next(ttr int64) (*Attempt, error) {
 	return attempt, nil
 }
 
-// RemovePending remove all pending Attempts for a given Task ID.
-func (am *AttemptsManager) RemovePending(taskID bson.ObjectId) error {
-	db := am.store.DB()
-	defer db.Session.Close()
-	query := bson.M{"task_id": taskID, "status": "pending"}
-	_, err := db.C("attempts").RemoveAll(query)
+// DeletePendingAttempts deletes all pending Attempts for a given Task ID.
+func (b *Base) DeletePendingAttempts(taskID bson.ObjectId) error {
+	query := bson.M{
+		"task_id": taskID,
+		"status":  "pending",
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"deleted": true,
+		},
+	}
+	_, err := b.db.C("attempts").UpdateAll(query, update)
+	return err
+}
+
+// DeleteAllAttempts deletes all pending Attempts for a given Task ID.
+func (b *Base) DeleteAllAttempts(taskID bson.ObjectId) error {
+	query := bson.M{
+		"task_id": taskID,
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"deleted": true,
+		},
+	}
+	_, err := b.db.C("attempts").UpdateAll(query, update)
 	return err
 }

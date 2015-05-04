@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"github.com/sebest/hooky/models"
+	"github.com/sebest/hooky/store"
 )
 
 // Scheduler schedules the Attempts of the Tasks.
 type Scheduler struct {
-	tm            *models.TasksManager
+	store         *store.Store
 	wg            sync.WaitGroup
 	quit          chan bool
 	querierSem    chan bool
@@ -19,9 +20,9 @@ type Scheduler struct {
 }
 
 // New creates a new Scheduler.
-func New(tm *models.TasksManager, maxQuerier int, maxWorker int, touchInterval int) *Scheduler {
+func New(store *store.Store, maxQuerier int, maxWorker int, touchInterval int) *Scheduler {
 	return &Scheduler{
-		tm:            tm,
+		store:         store,
 		quit:          make(chan bool),
 		querierSem:    make(chan bool, maxQuerier),
 		workerSem:     make(chan bool, maxWorker),
@@ -48,7 +49,10 @@ func (s *Scheduler) Start() {
 					s.workerSem <- true
 					s.wg.Add(1)
 					defer s.wg.Done()
-					attempt, err := s.tm.Attempts.Next(s.touchInterval * 2)
+					db := s.store.DB()
+					b := models.NewBase(db)
+					attempt, err := b.NextAttempt(s.touchInterval * 2)
+					db.Session.Close()
 					if attempt != nil {
 						s.wg.Add(1)
 						go func() {
@@ -76,6 +80,9 @@ func (s *Scheduler) worker(attempt *models.Attempt) {
 	defer close(result)
 	var wg sync.WaitGroup
 	wg.Add(1)
+	db := s.store.DB()
+	defer db.Session.Close()
+	b := models.NewBase(db)
 	// Start a goroutine to touch/reserve the Attempt.
 	go func() {
 		defer wg.Done()
@@ -85,17 +92,17 @@ func (s *Scheduler) worker(attempt *models.Attempt) {
 				if attempt == nil {
 					return
 				}
-				_, err := s.tm.NextAttempt(attempt.TaskID, attempt.Status)
+				_, err := b.NextAttemptForTask(attempt.TaskID, attempt.Status)
 				if err != nil {
 					fmt.Println(err)
 				}
 				return
 			case <-time.After(time.Duration(s.touchInterval) * time.Second):
-				s.tm.Attempts.Touch(attempt.ID, s.touchInterval*2)
+				b.TouchAttempt(attempt.ID, s.touchInterval*2)
 			}
 		}
 	}()
-	attempt, err := s.tm.Attempts.Do(attempt)
+	attempt, err := b.DoAttempt(attempt)
 	if err != nil {
 		fmt.Println(err)
 	}
