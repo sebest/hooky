@@ -26,5 +26,3 @@ func New(url string) (*Store, error) {
 func (s *Store) DB() *mgo.Database {
 	return s.session.Copy().DB("")
 }
-
-// https://coderwall.com/p/p1fckg/context-managers-in-go-don-t-be-ridiculous
