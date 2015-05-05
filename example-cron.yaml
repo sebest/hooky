@@ -1,0 +1,18 @@
+account:
+  id: YYYYYYYYYYYYYYYYYYYYY
+  key: XXXXXXXXXXXXXXXXXXXXXXXXX
+
+tasks:
+  - name: run_campaigns_scheduler
+    retry:
+      max: 100
+      max_attempts: 10
+    schedule: "0 */5 * * * *"
+    url: "https://api.domain.com/admin/run_campaigns_scheduler"
+  - name: placements_statistics
+    method: DELETE
+    schedule: "0 5 0 1 * *"
+    url: "https://api.domain.com/placements/statistics"
+    auth:
+      username: admin
+      password: ZZZZZZZZ
