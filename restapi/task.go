@@ -165,6 +165,43 @@ func GetTask(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(NewTaskFromModel(task))
 }
 
+// GetTasks ...
+func GetTasks(w rest.ResponseWriter, r *rest.Request) {
+	accountID, applicationName, queueName, _, err := taskParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b := GetBase(r)
+	lp := parseListQuery(r)
+	var tasks []*models.Task
+	lr := &models.ListResult{
+		List: &tasks,
+	}
+
+	if err := b.GetTasks(accountID, applicationName, queueName, lp, lr); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if lr.Count == 0 {
+		rest.NotFound(w, r)
+		return
+	}
+	rt := make([]*Task, len(tasks))
+	for idx, task := range tasks {
+		rt[idx] = NewTaskFromModel(task)
+	}
+	w.WriteJson(models.ListResult{
+		List:    rt,
+		HasMore: lr.HasMore,
+		Total:   lr.Total,
+		Count:   lr.Count,
+		Page:    lr.Page,
+		Pages:   lr.Pages,
+	})
+}
+
 // DeleteTasks ...
 func DeleteTasks(w rest.ResponseWriter, r *rest.Request) {
 	accountID, applicationName, queueName, _, err := taskParams(r)

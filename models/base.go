@@ -2,6 +2,13 @@ package models
 
 import "gopkg.in/mgo.v2"
 
+type ListParams struct {
+	Filters map[string]string
+	Sort    map[string]string
+	Page    int
+	Limit   int
+}
+
 type Base struct {
 	db *mgo.Database
 }

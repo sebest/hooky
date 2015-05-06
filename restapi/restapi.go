@@ -9,7 +9,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-func GetCuurentAccount(r *rest.Request) *bson.ObjectId {
+func GetCurentAccount(r *rest.Request) *bson.ObjectId {
 	if rv, ok := r.Env["REMOTE_USER"]; ok {
 		id := bson.ObjectIdHex(rv.(string))
 		return &id
@@ -88,6 +88,7 @@ func New(s *store.Store) (*rest.Api, error) {
 		// rest.Get("/accounts/:account/applications/:application/queues/:queue", GetQueue),
 		rest.Delete("/accounts/:account/applications/:application/queues", DeleteQueues),
 		rest.Post("/accounts/:account/applications/:application/queues/:queue/tasks", PutTask),
+		rest.Get("/accounts/:account/applications/:application/queues/:queue/tasks", GetTasks),
 		rest.Delete("/accounts/:account/applications/:application/queues/:queue/tasks", DeleteTasks),
 		rest.Put("/accounts/:account/applications/:application/queues/:queue/tasks/:task", PutTask),
 		rest.Get("/accounts/:account/applications/:application/queues/:queue/tasks/:task", GetTask),

@@ -9,6 +9,14 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+var taskStatus = map[string]bool{
+	"pending":  true,
+	"retrying": true,
+	"canceled": true,
+	"success":  true,
+	"error":    true,
+}
+
 // Task describes a Webtask.
 type Task struct {
 	// ID is the ID of the Task.
@@ -42,7 +50,7 @@ type Task struct {
 	Payload string `bson:"payload,omitempty"`
 
 	// Schedule is a cron specification describing the recurrency if any.
-	Schedule string `bson:"schedule,omitempty"`
+	Schedule string `bson:"schedule"`
 
 	// At is a Unix timestamp representing the next time a request must be performed.
 	At int64 `bson:"at"`
@@ -200,6 +208,30 @@ func (b *Base) GetTask(account bson.ObjectId, application string, queue string, 
 		task = nil
 	}
 	return
+}
+
+// GetTasks returns a list of Tasks.
+func (b *Base) GetTasks(account bson.ObjectId, application string, queue string, lp ListParams, lr *ListResult) (err error) {
+	query := bson.M{
+		"account":     account,
+		"application": application,
+		"queue":       queue,
+		"deleted":     false,
+	}
+	if value, ok := lp.Filters["schedule"]; ok {
+		if value == "true" {
+			query["schedule"] = bson.M{"$ne": ""}
+		} else if value == "false" {
+			query["schedule"] = ""
+		}
+	}
+	if value, ok := lp.Filters["status"]; ok {
+		_, ok := taskStatus[value]
+		if ok {
+			query["status"] = value
+		}
+	}
+	return b.getItems("tasks", query, lp, lr)
 }
 
 // GetTaskByID returns a Task given its ID.
