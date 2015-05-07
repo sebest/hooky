@@ -21,14 +21,14 @@ type Attempt struct {
 	// Application is the name of the parent Application.
 	Application string `bson:"application"`
 
-	// Queue is the name of the parent Queue.
-	Queue string `bson:"queue"`
-
 	// Task is the task's name.
 	Task string `bson:"task"`
 
 	// taskID is the ID of the parent Webtask of this attempt.
 	TaskID bson.ObjectId `bson:"task_id"`
+
+	// Queue is the name of the parent Queue.
+	Queue string `bson:"queue"`
 
 	// URL is the URL that the worker with requests.
 	URL string `bson:"url"`
@@ -116,11 +116,11 @@ func (b *Base) DoAttempt(attempt *Attempt) (*Attempt, error) {
 	var statusCode int
 	client := &http.Client{}
 	resp, err := client.Do(req)
-	defer resp.Body.Close()
 	if err != nil {
 		status = "error"
 		statusMessage = err.Error()
 	} else {
+		defer resp.Body.Close()
 		statusMessage = resp.Status
 		statusCode = resp.StatusCode
 		if statusCode == 200 {

@@ -62,6 +62,64 @@ func PutApplication(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(NewApplicationFromModel(application))
 }
 
+// GetApplication ...
+func GetApplication(w rest.ResponseWriter, r *rest.Request) {
+	accountID, applicationName, err := applicationParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b := GetBase(r)
+	application, err := b.GetApplication(accountID, applicationName)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if application == nil {
+		rest.NotFound(w, r)
+		return
+	}
+	w.WriteJson(NewApplicationFromModel(application))
+}
+
+// GetApplications ...
+func GetApplications(w rest.ResponseWriter, r *rest.Request) {
+	accountID, _, err := applicationParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b := GetBase(r)
+	lp := parseListQuery(r)
+	var applications []*models.Application
+	lr := &models.ListResult{
+		List: &applications,
+	}
+
+	if err := b.GetApplications(accountID, lp, lr); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if lr.Count == 0 {
+		rest.NotFound(w, r)
+		return
+	}
+	rt := make([]*Application, len(applications))
+	for idx, application := range applications {
+		rt[idx] = NewApplicationFromModel(application)
+	}
+	w.WriteJson(models.ListResult{
+		List:    rt,
+		HasMore: lr.HasMore,
+		Total:   lr.Total,
+		Count:   lr.Count,
+		Page:    lr.Page,
+		Pages:   lr.Pages,
+	})
+}
+
 // DeleteApplications ...
 func DeleteApplications(w rest.ResponseWriter, r *rest.Request) {
 	accountID, _, err := applicationParams(r)
@@ -86,6 +144,10 @@ func DeleteApplication(w rest.ResponseWriter, r *rest.Request) {
 
 	b := GetBase(r)
 	if err := b.DeleteApplication(accountID, applicationName); err != nil {
-		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		if err == models.ErrDeleteDefaultApplication {
+			rest.Error(w, err.Error(), http.StatusForbidden)
+		} else {
+			rest.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 }

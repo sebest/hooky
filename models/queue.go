@@ -1,10 +1,16 @@
 package models
 
 import (
+	"errors"
 	"fmt"
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+)
+
+var (
+	// ErrDeleteDefaultQueue is returned when trying to delete the default queue.
+	ErrDeleteDefaultQueue = errors.New("can not delete default queue")
 )
 
 // Queue ...
@@ -42,6 +48,7 @@ func (b *Base) DeleteQueues(account bson.ObjectId, application string) (err erro
 	query := bson.M{
 		"account":     account,
 		"application": application,
+		"name":        bson.M{"$ne": "default"},
 	}
 	update := bson.M{
 		"$set": bson.M{
@@ -49,6 +56,10 @@ func (b *Base) DeleteQueues(account bson.ObjectId, application string) (err erro
 		},
 	}
 	if _, err = b.db.C("queues").UpdateAll(query, update); err == nil {
+		query = bson.M{
+			"account":     account,
+			"application": application,
+		}
 		if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
 			_, err = b.db.C("attempts").UpdateAll(query, update)
 		}
@@ -58,6 +69,9 @@ func (b *Base) DeleteQueues(account bson.ObjectId, application string) (err erro
 
 // DeleteQueue deletes an Queue and all its children.
 func (b *Base) DeleteQueue(account bson.ObjectId, application string, name string) (err error) {
+	if name == "default" {
+		return ErrDeleteDefaultQueue
+	}
 	query := bson.M{
 		"account":     account,
 		"application": application,
@@ -68,6 +82,8 @@ func (b *Base) DeleteQueue(account bson.ObjectId, application string, name strin
 			"deleted": true,
 		},
 	}
+	// TODO update taks using this queue to default queue
+	// TODO update pending attemps to default queue
 	if _, err = b.db.C("queues").UpdateAll(query, update); err == nil {
 		query := bson.M{
 			"account":     account,

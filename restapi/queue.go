@@ -88,6 +88,10 @@ func DeleteQueue(w rest.ResponseWriter, r *rest.Request) {
 
 	b := GetBase(r)
 	if err := b.DeleteQueue(accountID, applicationName, queueName); err != nil {
-		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		if err == models.ErrDeleteDefaultApplication {
+			rest.Error(w, err.Error(), http.StatusForbidden)
+		} else {
+			rest.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 }

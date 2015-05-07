@@ -1,10 +1,16 @@
 package models
 
 import (
+	"errors"
 	"fmt"
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+)
+
+var (
+	// ErrDeleteDefaultApplication is returned when trying to delete the default application.
+	ErrDeleteDefaultApplication = errors.New("can not delete default application")
 )
 
 // Application is a list of recurring Tasks.
@@ -33,17 +39,36 @@ func (b *Base) NewApplication(account bson.ObjectId, name string) (application *
 	return
 }
 
-// GetApplication returns a list of Tasks from a application.
-// func (b *Base) GetApplication(application string) (tasks []*Task, err error) {
-// 	query := bson.M{"application": application}
-// 	err = b.db.C("tasks").Find(query).All(&tasks)
-// 	return
-// }
+// GetApplication returns an Application.
+func (b *Base) GetApplication(account bson.ObjectId, name string) (application *Application, err error) {
+	query := bson.M{
+		"account": account,
+		"name":    name,
+		"deleted": false,
+	}
+	application = &Application{}
+	err = b.db.C("applications").Find(query).One(application)
+	if err == mgo.ErrNotFound {
+		err = nil
+		application = nil
+	}
+	return
+}
+
+// GetApplications returns a list of Applications.
+func (b *Base) GetApplications(account bson.ObjectId, lp ListParams, lr *ListResult) (err error) {
+	query := bson.M{
+		"account": account,
+		"deleted": false,
+	}
+	return b.getItems("applications", query, lp, lr)
+}
 
 // DeleteApplications deletes all Applications owns by an Account.
 func (b *Base) DeleteApplications(account bson.ObjectId) (err error) {
 	query := bson.M{
 		"account": account,
+		"name":    bson.M{"$ne": "default"},
 	}
 	update := bson.M{
 		"$set": bson.M{
@@ -51,6 +76,9 @@ func (b *Base) DeleteApplications(account bson.ObjectId) (err error) {
 		},
 	}
 	if _, err = b.db.C("applications").UpdateAll(query, update); err == nil {
+		query = bson.M{
+			"account": account,
+		}
 		if _, err = b.db.C("queues").UpdateAll(query, update); err == nil {
 			if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
 				_, err = b.db.C("attempts").UpdateAll(query, update)
@@ -61,10 +89,13 @@ func (b *Base) DeleteApplications(account bson.ObjectId) (err error) {
 }
 
 // DeleteApplication deletes an Application and all its children.
-func (b *Base) DeleteApplication(account bson.ObjectId, application string) (err error) {
+func (b *Base) DeleteApplication(account bson.ObjectId, name string) (err error) {
+	if name == "default" {
+		return ErrDeleteDefaultApplication
+	}
 	query := bson.M{
 		"account": account,
-		"name":    application,
+		"name":    name,
 	}
 	update := bson.M{
 		"$set": bson.M{
@@ -74,7 +105,7 @@ func (b *Base) DeleteApplication(account bson.ObjectId, application string) (err
 	if _, err = b.db.C("applications").UpdateAll(query, update); err == nil {
 		query := bson.M{
 			"account":     account,
-			"application": application,
+			"application": name,
 		}
 		if _, err = b.db.C("queues").UpdateAll(query, update); err == nil {
 			if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {

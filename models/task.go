@@ -28,11 +28,11 @@ type Task struct {
 	// Application is the name of the parent Application.
 	Application string `bson:"application"`
 
-	// Queue is the name of the parent Queue.
-	Queue string `bson:"queue"`
-
 	// Name is the task's name.
 	Name string `bson:"name"`
+
+	// Queue is the name of the parent Queue.
+	Queue string `bson:"queue"`
 
 	// URL is the URL that the worker with requests.
 	URL string `bson:"url"`
@@ -100,12 +100,16 @@ func nextRun(schedule string) (int64, error) {
 }
 
 // NewTask creates a new Task.
-func (b *Base) NewTask(account bson.ObjectId, application string, queue string, name string, URL string, auth HTTPAuth, method string, headers map[string]string, payload string, schedule string, retry Retry) (task *Task, err error) {
+func (b *Base) NewTask(account bson.ObjectId, application string, name string, queue string, URL string, auth HTTPAuth, method string, headers map[string]string, payload string, schedule string, retry Retry) (task *Task, err error) {
 	taskID := bson.NewObjectId()
+	// If no name is provided we use the Task ID
 	if name == "" {
 		name = taskID.Hex()
 	}
-
+	// Default queue is 'default'
+	if queue == "" {
+		queue = "default"
+	}
 	// Default method is POST.
 	if method == "" {
 		method = "POST"
@@ -193,11 +197,10 @@ func (b *Base) NewTask(account bson.ObjectId, application string, queue string, 
 }
 
 // GetTask returns a Task.
-func (b *Base) GetTask(account bson.ObjectId, application string, queue string, name string) (task *Task, err error) {
+func (b *Base) GetTask(account bson.ObjectId, application string, name string) (task *Task, err error) {
 	query := bson.M{
 		"account":     account,
 		"application": application,
-		"queue":       queue,
 		"name":        name,
 		"deleted":     false,
 	}
@@ -211,11 +214,10 @@ func (b *Base) GetTask(account bson.ObjectId, application string, queue string, 
 }
 
 // GetTasks returns a list of Tasks.
-func (b *Base) GetTasks(account bson.ObjectId, application string, queue string, lp ListParams, lr *ListResult) (err error) {
+func (b *Base) GetTasks(account bson.ObjectId, application string, lp ListParams, lr *ListResult) (err error) {
 	query := bson.M{
 		"account":     account,
 		"application": application,
-		"queue":       queue,
 		"deleted":     false,
 	}
 	if value, ok := lp.Filters["schedule"]; ok {
@@ -297,11 +299,10 @@ func (b *Base) NextAttemptForTask(taskID bson.ObjectId, status string) (attempt 
 }
 
 // DeleteTasks deletes all Tasks from an Application.
-func (b *Base) DeleteTasks(account bson.ObjectId, application string, queue string) (err error) {
+func (b *Base) DeleteTasks(account bson.ObjectId, application string) (err error) {
 	query := bson.M{
 		"account":     account,
 		"application": application,
-		"queue":       queue,
 	}
 	update := bson.M{
 		"$set": bson.M{
@@ -315,11 +316,10 @@ func (b *Base) DeleteTasks(account bson.ObjectId, application string, queue stri
 }
 
 // DeleteTask deletes a Task.
-func (b *Base) DeleteTask(account bson.ObjectId, application string, queue string, name string) (err error) {
+func (b *Base) DeleteTask(account bson.ObjectId, application string, name string) (err error) {
 	query := bson.M{
 		"account":     account,
 		"application": application,
-		"queue":       queue,
 		"name":        name,
 	}
 	update := bson.M{
@@ -331,7 +331,6 @@ func (b *Base) DeleteTask(account bson.ObjectId, application string, queue strin
 		query := bson.M{
 			"account":     account,
 			"application": application,
-			"queue":       queue,
 			"task":        name,
 		}
 		_, err = b.db.C("attempts").UpdateAll(query, update)
@@ -342,7 +341,7 @@ func (b *Base) DeleteTask(account bson.ObjectId, application string, queue strin
 // EnsureTaskIndex creates mongo indexes for Application.
 func (b *Base) EnsureTaskIndex() {
 	index := mgo.Index{
-		Key:        []string{"account", "application", "queue", "name"},
+		Key:        []string{"account", "application", "name"},
 		Unique:     true,
 		Background: false,
 		Sparse:     true,
