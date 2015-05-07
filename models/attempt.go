@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -9,6 +10,12 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
+
+var AttemptStatuses = map[string]bool{
+	"pending": true,
+	"success": true,
+	"error":   true,
+}
 
 // Attempt describes a HTTP request that must be perform for a task.
 type Attempt struct {
@@ -24,7 +31,7 @@ type Attempt struct {
 	// Task is the task's name.
 	Task string `bson:"task"`
 
-	// taskID is the ID of the parent Webtask of this attempt.
+	// TaskID is the ID of the parent Webtask of this attempt.
 	TaskID bson.ObjectId `bson:"task_id"`
 
 	// Queue is the name of the parent Queue.
@@ -165,6 +172,23 @@ func (b *Base) GetAttempt(attemptID bson.ObjectId) (*Attempt, error) {
 	return attempt, nil
 }
 
+// GetAttempts returns a list of Attempts.
+func (b *Base) GetAttempts(account bson.ObjectId, application string, task string, lp ListParams, lr *ListResult) (err error) {
+	query := bson.M{
+		"account":     account,
+		"application": application,
+		"task":        task,
+		"deleted":     false,
+	}
+	if value, ok := lp.Filters["status"]; ok {
+		_, ok := AttemptStatuses[value]
+		if ok {
+			query["status"] = value
+		}
+	}
+	return b.getItems("attempts", query, lp, lr)
+}
+
 // NextAttempt reserves and returns the next Attempt.
 func (b *Base) NextAttempt(ttr int64) (*Attempt, error) {
 	now := time.Now().UnixNano()
@@ -218,4 +242,17 @@ func (b *Base) DeleteAllAttempts(taskID bson.ObjectId) error {
 	}
 	_, err := b.db.C("attempts").UpdateAll(query, update)
 	return err
+}
+
+// EnsureAttemptIndex creates mongo indexes for Application.
+func (b *Base) EnsureAttemptIndex() {
+	index := mgo.Index{
+		Key:        []string{"account", "application", "task"},
+		Unique:     true,
+		Background: false,
+		Sparse:     true,
+	}
+	if err := b.db.C("attempts").EnsureIndex(index); err != nil {
+		fmt.Printf("Error creating index on attempts: %s\n", err)
+	}
 }

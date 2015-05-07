@@ -9,7 +9,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-var taskStatus = map[string]bool{
+var TaskStatuses = map[string]bool{
 	"pending":  true,
 	"retrying": true,
 	"canceled": true,
@@ -228,7 +228,7 @@ func (b *Base) GetTasks(account bson.ObjectId, application string, lp ListParams
 		}
 	}
 	if value, ok := lp.Filters["status"]; ok {
-		_, ok := taskStatus[value]
+		_, ok := TaskStatuses[value]
 		if ok {
 			query["status"] = value
 		}

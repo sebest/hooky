@@ -23,4 +23,5 @@ func (b *Base) EnsureIndex() {
 	b.EnsureApplicationIndex()
 	b.EnsureQueueIndex()
 	b.EnsureTaskIndex()
+	b.EnsureAttemptIndex()
 }

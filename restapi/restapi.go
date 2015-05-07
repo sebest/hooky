@@ -95,7 +95,7 @@ func New(s *store.Store) (*rest.Api, error) {
 		rest.Put("/accounts/:account/applications/:application/tasks/:task", PutTask),
 		rest.Get("/accounts/:account/applications/:application/tasks/:task", GetTask),
 		rest.Delete("/accounts/:account/applications/:application/tasks/:task", DeleteTask),
-		// rest.Get("/accounts/:account/applications/:application/tasks/:task/attempts", GetAttempts),
+		rest.Get("/accounts/:account/applications/:application/tasks/:task/attempts", GetAttempts),
 	)
 	if err != nil {
 		return nil, err
