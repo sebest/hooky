@@ -76,7 +76,7 @@ func New(s *store.Store) (*rest.Api, error) {
 	})
 	router, err := rest.MakeRouter(
 		rest.Post("/accounts", PostAccount),
-		// rest.Get("/accounts", GetAccounts),
+		rest.Get("/accounts", GetAccounts),
 		rest.Get("/accounts/:account", GetAccount),
 		rest.Delete("/accounts/:account", DeleteAccount),
 		rest.Delete("/accounts/:account/applications", DeleteApplications),
@@ -84,10 +84,10 @@ func New(s *store.Store) (*rest.Api, error) {
 		rest.Get("/accounts/:account/applications/:application", GetApplication),
 		rest.Put("/accounts/:account/applications/:application", PutApplication),
 		rest.Delete("/accounts/:account/applications/:application", DeleteApplication),
-		// rest.Get("/accounts/:account/applications/:application/queues", GetQueues),
+		rest.Get("/accounts/:account/applications/:application/queues", GetQueues),
 		rest.Put("/accounts/:account/applications/:application/queues/:queue", PutQueue),
 		rest.Delete("/accounts/:account/applications/:application/queues/:queue", DeleteQueue),
-		// rest.Get("/accounts/:account/applications/:application/queues/:queue", GetQueue),
+		rest.Get("/accounts/:account/applications/:application/queues/:queue", GetQueue),
 		rest.Delete("/accounts/:account/applications/:application/queues", DeleteQueues),
 		rest.Post("/accounts/:account/applications/:application/tasks", PutTask),
 		rest.Get("/accounts/:account/applications/:application/tasks", GetTasks),

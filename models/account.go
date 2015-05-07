@@ -68,6 +68,14 @@ func (b *Base) GetAccount(accountID bson.ObjectId) (account *Account, err error)
 	return
 }
 
+// GetAccounts returns a list of Accounts.
+func (b *Base) GetAccounts(lp ListParams, lr *ListResult) (err error) {
+	query := bson.M{
+		"deleted": false,
+	}
+	return b.getItems("accounts", query, lp, lr)
+}
+
 // DeleteAccount deletes an Account given its ID.
 func (b *Base) DeleteAccount(account bson.ObjectId) (err error) {
 	update := bson.M{

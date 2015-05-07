@@ -8,7 +8,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-// Queue is a list of Tasks with a common queue Name.
+// Queue ...
 type Queue struct {
 	// ID is the ID of the Queue.
 	ID string `json:"id"`
@@ -62,6 +62,64 @@ func PutQueue(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 	w.WriteJson(NewQueueFromModel(queue))
+}
+
+// GetQueue ...
+func GetQueue(w rest.ResponseWriter, r *rest.Request) {
+	accountID, applicationName, queueName, err := queueParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b := GetBase(r)
+	queue, err := b.GetQueue(accountID, applicationName, queueName)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if queue == nil {
+		rest.NotFound(w, r)
+		return
+	}
+	w.WriteJson(NewQueueFromModel(queue))
+}
+
+// GetQueues ...
+func GetQueues(w rest.ResponseWriter, r *rest.Request) {
+	accountID, applicationName, _, err := queueParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b := GetBase(r)
+	lp := parseListQuery(r)
+	var queues []*models.Queue
+	lr := &models.ListResult{
+		List: &queues,
+	}
+
+	if err := b.GetQueues(accountID, applicationName, lp, lr); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if lr.Count == 0 {
+		rest.NotFound(w, r)
+		return
+	}
+	rt := make([]*Queue, len(queues))
+	for idx, queue := range queues {
+		rt[idx] = NewQueueFromModel(queue)
+	}
+	w.WriteJson(models.ListResult{
+		List:    rt,
+		HasMore: lr.HasMore,
+		Total:   lr.Total,
+		Count:   lr.Count,
+		Page:    lr.Page,
+		Pages:   lr.Pages,
+	})
 }
 
 // DeleteQueues ...

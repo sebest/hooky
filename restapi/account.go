@@ -74,6 +74,37 @@ func GetAccount(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(NewAccountFromModel(account))
 }
 
+// GetAccounts ...
+func GetAccounts(w rest.ResponseWriter, r *rest.Request) {
+	b := GetBase(r)
+	lp := parseListQuery(r)
+	var accounts []*models.Account
+	lr := &models.ListResult{
+		List: &accounts,
+	}
+
+	if err := b.GetAccounts(lp, lr); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if lr.Count == 0 {
+		rest.NotFound(w, r)
+		return
+	}
+	rt := make([]*Account, len(accounts))
+	for idx, account := range accounts {
+		rt[idx] = NewAccountFromModel(account)
+	}
+	w.WriteJson(models.ListResult{
+		List:    rt,
+		HasMore: lr.HasMore,
+		Total:   lr.Total,
+		Count:   lr.Count,
+		Page:    lr.Page,
+		Pages:   lr.Pages,
+	})
+}
+
 // DeleteAccount handles DELETE request on /accounts/:account
 func DeleteAccount(w rest.ResponseWriter, r *rest.Request) {
 	accountID, err := accountParams(r)

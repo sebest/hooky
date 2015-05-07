@@ -43,6 +43,33 @@ func (b *Base) NewQueue(account bson.ObjectId, application string, name string) 
 	return
 }
 
+// GetQueue returns a Queue.
+func (b *Base) GetQueue(account bson.ObjectId, application string, name string) (queue *Queue, err error) {
+	query := bson.M{
+		"account":     account,
+		"application": application,
+		"name":        name,
+		"deleted":     false,
+	}
+	queue = &Queue{}
+	err = b.db.C("queues").Find(query).One(queue)
+	if err == mgo.ErrNotFound {
+		err = nil
+		queue = nil
+	}
+	return
+}
+
+// GetQueues returns a list of Queues.
+func (b *Base) GetQueues(account bson.ObjectId, application string, lp ListParams, lr *ListResult) (err error) {
+	query := bson.M{
+		"account":     account,
+		"application": application,
+		"deleted":     false,
+	}
+	return b.getItems("queues", query, lp, lr)
+}
+
 // DeleteQueues deletes all Queues owns by an Account.
 func (b *Base) DeleteQueues(account bson.ObjectId, application string) (err error) {
 	query := bson.M{
