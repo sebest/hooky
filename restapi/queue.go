@@ -2,6 +2,7 @@ package restapi
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/sebest/hooky/models"
@@ -12,6 +13,9 @@ import (
 type Queue struct {
 	// ID is the ID of the Queue.
 	ID string `json:"id"`
+
+	// Created is the date when the Queue was created.
+	Created string `json:"created"`
 
 	// Account is the ID of the Account owning the Queue.
 	Account string `json:"account"`
@@ -36,6 +40,7 @@ func queueParams(r *rest.Request) (bson.ObjectId, string, string, error) {
 func NewQueueFromModel(queue *models.Queue) *Queue {
 	return &Queue{
 		ID:          queue.ID.Hex(),
+		Created:     queue.ID.Time().UTC().Format(time.RFC3339),
 		Account:     queue.Account.Hex(),
 		Application: queue.Application,
 		Name:        queue.Name,

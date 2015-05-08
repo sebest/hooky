@@ -13,6 +13,9 @@ type Attempt struct {
 	// ID is the Attempt ID.
 	ID string `json:"id"`
 
+	// Created is the date schedule the Task was created.
+	Created string `json:"created"`
+
 	// Account is the ID of the Account owning the Task.
 	Account string `json:"account"`
 
@@ -27,9 +30,6 @@ type Attempt struct {
 
 	// Queue is the name of the parent Queue.
 	Queue string `json:"queue"`
-
-	// Created is the date schedule the Task was created.
-	Created string `json:"created"`
 
 	// URL is the URL that the worker with requests.
 	URL string `json:"url"`
@@ -67,6 +67,7 @@ type Attempt struct {
 func NewAttemptFromModel(attempt *models.Attempt) *Attempt {
 	return &Attempt{
 		ID:            attempt.ID.Hex(),
+		Created:       attempt.ID.Time().UTC().Format(time.RFC3339),
 		Application:   attempt.Application,
 		Account:       attempt.Account.Hex(),
 		Queue:         attempt.Queue,
@@ -77,7 +78,6 @@ func NewAttemptFromModel(attempt *models.Attempt) *Attempt {
 		HTTPAuth:      attempt.HTTPAuth,
 		Headers:       attempt.Headers,
 		Payload:       attempt.Payload,
-		Created:       attempt.ID.Time().UTC().Format(time.RFC3339),
 		Status:        attempt.Status,
 		StatusCode:    attempt.StatusCode,
 		StatusMessage: attempt.StatusMessage,

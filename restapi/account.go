@@ -2,6 +2,7 @@ package restapi
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/sebest/hooky/models"
@@ -12,6 +13,9 @@ import (
 type Account struct {
 	// ID is the ID of the Account.
 	ID string `json:"id"`
+
+	// Created is the date when the Account was created.
+	Created string `json:"created"`
 
 	// Key is the secret key to authenticate the Account ID.
 	Key string `json:"key"`
@@ -26,8 +30,9 @@ func accountParams(r *rest.Request) (bson.ObjectId, error) {
 // NewAccountFromModel returns an API Account given a model Account.
 func NewAccountFromModel(account *models.Account) *Account {
 	return &Account{
-		ID:  account.ID.Hex(),
-		Key: account.Key,
+		ID:      account.ID.Hex(),
+		Created: account.ID.Time().UTC().Format(time.RFC3339),
+		Key:     account.Key,
 	}
 }
 

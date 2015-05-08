@@ -2,6 +2,7 @@ package restapi
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/sebest/hooky/models"
@@ -12,6 +13,9 @@ import (
 type Application struct {
 	// ID is the ID of the Application.
 	ID string `json:"id"`
+
+	// Created is the date when the Application was created.
+	Created string `json:"created"`
 
 	// Account is the ID of the Account owning the Application.
 	Account string `json:"account"`
@@ -35,6 +39,7 @@ func applicationParams(r *rest.Request) (bson.ObjectId, string, error) {
 func NewApplicationFromModel(application *models.Application) *Application {
 	return &Application{
 		ID:      application.ID.Hex(),
+		Created: application.ID.Time().UTC().Format(time.RFC3339),
 		Account: application.Account.Hex(),
 		Name:    application.Name,
 	}

@@ -3,6 +3,7 @@ package models
 import "gopkg.in/mgo.v2"
 
 type ListParams struct {
+	Fields  []string
 	Filters map[string]string
 	Sort    map[string]string
 	Page    int

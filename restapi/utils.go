@@ -29,6 +29,8 @@ func parseListQuery(r *rest.Request) models.ListParams {
 			l.Filters[p[0]] = p[1]
 		}
 	}
+	// Fields
+	l.Fields = strings.Split(q.Get("fields"), ",")
 	// Sort
 	items = strings.Split(q.Get("sort"), ",")
 	l.Sort = make(map[string]string, len(items))

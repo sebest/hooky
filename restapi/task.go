@@ -14,6 +14,9 @@ type Task struct {
 	// ID is the Task ID.
 	ID string `json:"id"`
 
+	// Created is the date when the Task was created.
+	Created string `json:"created"`
+
 	// Account is the ID of the Account owning the Task.
 	Account string `json:"account"`
 
@@ -25,9 +28,6 @@ type Task struct {
 
 	// Queue is the name of the parent Queue.
 	Queue string `json:"queue"`
-
-	// Created is the date schedule the Task was created.
-	Created string `json:"created"`
 
 	// URL is the URL that the worker with requests.
 	URL string `json:"url"`
@@ -83,6 +83,7 @@ type Task struct {
 func NewTaskFromModel(task *models.Task) *Task {
 	return &Task{
 		ID:          task.ID.Hex(),
+		Created:     task.ID.Time().UTC().Format(time.RFC3339),
 		Application: task.Application,
 		Account:     task.Account.Hex(),
 		Queue:       task.Queue,
@@ -94,7 +95,6 @@ func NewTaskFromModel(task *models.Task) *Task {
 		Payload:     task.Payload,
 		Schedule:    task.Schedule,
 		At:          UnixToRFC3339(int64(task.At / 1000000000)),
-		Created:     task.ID.Time().UTC().Format(time.RFC3339),
 		Status:      task.Status,
 		Executed:    UnixToRFC3339(task.Executed),
 		Active:      task.Active,
