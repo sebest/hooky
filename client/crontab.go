@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 
+	"github.com/sebest/hooky/models"
+	"github.com/sebest/hooky/restapi"
 	"gopkg.in/yaml.v2"
 )
 
@@ -36,7 +39,7 @@ type Account struct {
 	Key string `yaml:"key"`
 }
 
-type TasksDefaults struct {
+type TaskDefaults struct {
 	// Application is the name of the default Application.
 	Application string `yaml:"application"`
 
@@ -53,12 +56,12 @@ type TasksDefaults struct {
 	Active *bool `yaml:"active,omitempty"`
 }
 
-type Tasks struct {
+type Task struct {
 	// Application is the name of the parent Application.
 	Application *string `yaml:"application,omitempty" json:"-"`
 
 	// Queue is the name of the parent Queue.
-	Queue *string `yaml:"queue,omitempty" json:"-"`
+	Queue *string `yaml:"queue,omitempty" json:"queue,omitempty"`
 
 	// Name is the task's name.
 	Name string `yaml:"name" json:"-"`
@@ -89,9 +92,9 @@ type Tasks struct {
 }
 
 type Crontab struct {
-	Account       Account        `yaml:"account"`
-	TasksDefaults *TasksDefaults `yaml:"tasks_defaults,omitempty"`
-	Tasks         []*Tasks       `yaml:"tasks"`
+	Account      Account       `yaml:"account"`
+	TaskDefaults *TaskDefaults `yaml:"tasks_defaults,omitempty"`
+	Tasks        []*Task       `yaml:"tasks"`
 }
 
 func NewCrontabFromFile(path string) (*Crontab, error) {
@@ -108,26 +111,76 @@ func NewCrontabFromFile(path string) (*Crontab, error) {
 	return crontab, nil
 }
 
+func newReq(method string, url string, username string, password string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("User-Agent", "Hooky")
+	req.Header.Add("Content-Type", "application/json")
+	if username != "" || password != "" {
+		req.SetBasicAuth(username, password)
+	}
+	return req, nil
+}
+
 func SyncCrontab(baseURL string, crontab *Crontab) error {
+	client := &http.Client{}
+
+	currentTasks := make(map[string]bool, 0)
+
+	// Set all the tasks from the crontab
 	for _, task := range crontab.Tasks {
+		currentTasks[task.Name] = true
 		payload, err := json.Marshal(task)
 		if err != nil {
 			return err
 		}
-		url := fmt.Sprintf("%s/accounts/%s/applications/%s/queues/%s/tasks/%s", baseURL, crontab.Account.ID, "default", "default", task.Name)
-		req, err := http.NewRequest("PUT", url, bytes.NewBuffer(payload))
+		url := fmt.Sprintf("%s/accounts/%s/applications/%s/tasks/%s", baseURL, crontab.Account.ID, "default", task.Name)
+		req, err := newReq("PUT", url, crontab.Account.ID, crontab.Account.Key, bytes.NewBuffer(payload))
 		if err != nil {
 			return err
 		}
-		req.Header.Add("User-Agent", "Hooky")
-		req.Header.Add("Content-Type", "application/json")
-		req.SetBasicAuth(crontab.Account.ID, crontab.Account.Key)
-		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
 			return err
 		}
 		defer resp.Body.Close()
 	}
+
+	// Find tasks that have a schedule
+	url := fmt.Sprintf("%s/accounts/%s/applications/%s/tasks?filters=schedule:true", baseURL, crontab.Account.ID, "default")
+	req, err := newReq("GET", url, crontab.Account.ID, crontab.Account.Key, nil)
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	payload, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	var tasks []*restapi.Task
+	lr := &models.ListResult{
+		List: &tasks,
+	}
+	if err := json.Unmarshal(payload, lr); err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	// Delete tasks that should not be there
+	for _, task := range tasks {
+		if _, ok := currentTasks[task.Name]; ok == false {
+			url := fmt.Sprintf("%s/accounts/%s/applications/%s/tasks/%s", baseURL, crontab.Account.ID, "default", task.Name)
+			req, err := newReq("DELETE", url, crontab.Account.ID, crontab.Account.Key, nil)
+			resp, err := client.Do(req)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+		}
+	}
+
 	return nil
 }
