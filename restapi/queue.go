@@ -90,6 +90,38 @@ func GetQueue(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(NewQueueFromModel(queue))
 }
 
+// DeleteQueue ...
+func DeleteQueue(w rest.ResponseWriter, r *rest.Request) {
+	accountID, applicationName, queueName, err := queueParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b := GetBase(r)
+	if err := b.DeleteQueue(accountID, applicationName, queueName); err != nil {
+		if err == models.ErrDeleteDefaultApplication {
+			rest.Error(w, err.Error(), http.StatusForbidden)
+		} else {
+			rest.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}
+}
+
+// DeleteQueues ...
+func DeleteQueues(w rest.ResponseWriter, r *rest.Request) {
+	accountID, applicationName, _, err := queueParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b := GetBase(r)
+	if err := b.DeleteQueues(accountID, applicationName); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // GetQueues ...
 func GetQueues(w rest.ResponseWriter, r *rest.Request) {
 	accountID, applicationName, _, err := queueParams(r)
@@ -125,36 +157,4 @@ func GetQueues(w rest.ResponseWriter, r *rest.Request) {
 		Page:    lr.Page,
 		Pages:   lr.Pages,
 	})
-}
-
-// DeleteQueues ...
-func DeleteQueues(w rest.ResponseWriter, r *rest.Request) {
-	accountID, applicationName, _, err := queueParams(r)
-	if err != nil {
-		rest.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	b := GetBase(r)
-	if err := b.DeleteQueues(accountID, applicationName); err != nil {
-		rest.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-// DeleteQueue ...
-func DeleteQueue(w rest.ResponseWriter, r *rest.Request) {
-	accountID, applicationName, queueName, err := queueParams(r)
-	if err != nil {
-		rest.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	b := GetBase(r)
-	if err := b.DeleteQueue(accountID, applicationName, queueName); err != nil {
-		if err == models.ErrDeleteDefaultApplication {
-			rest.Error(w, err.Error(), http.StatusForbidden)
-		} else {
-			rest.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	}
 }

@@ -29,31 +29,7 @@ func (b *Base) NewAccount() (account *Account, err error) {
 	return
 }
 
-//AuthenticateAccount authenticates an Account.
-func (b *Base) AuthenticateAccount(account bson.ObjectId, key string) (bool, error) {
-	query := bson.M{
-		"_id":     account,
-		"key":     key,
-		"deleted": false,
-	}
-	n, err := b.db.C("accounts").Find(query).Count()
-	if err != nil {
-		return false, err
-	}
-	return n == 1, nil
-}
-
-var chars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-
-func randKey(n int) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))]
-	}
-	return string(b)
-}
-
-// GetAccount returns a Acc given its ID.
+// GetAccount returns an Account given its ID.
 func (b *Base) GetAccount(accountID bson.ObjectId) (account *Account, err error) {
 	query := bson.M{
 		"_id":     accountID,
@@ -66,14 +42,6 @@ func (b *Base) GetAccount(accountID bson.ObjectId) (account *Account, err error)
 		account = nil
 	}
 	return
-}
-
-// GetAccounts returns a list of Accounts.
-func (b *Base) GetAccounts(lp ListParams, lr *ListResult) (err error) {
-	query := bson.M{
-		"deleted": false,
-	}
-	return b.getItems("accounts", query, lp, lr)
 }
 
 // DeleteAccount deletes an Account given its ID.
@@ -97,4 +65,36 @@ func (b *Base) DeleteAccount(account bson.ObjectId) (err error) {
 		}
 	}
 	return
+}
+
+// GetAccounts returns a list of Accounts.
+func (b *Base) GetAccounts(lp ListParams, lr *ListResult) (err error) {
+	query := bson.M{
+		"deleted": false,
+	}
+	return b.getItems("accounts", query, lp, lr)
+}
+
+//AuthenticateAccount authenticates an Account.
+func (b *Base) AuthenticateAccount(account bson.ObjectId, key string) (bool, error) {
+	query := bson.M{
+		"_id":     account,
+		"key":     key,
+		"deleted": false,
+	}
+	n, err := b.db.C("accounts").Find(query).Count()
+	if err != nil {
+		return false, err
+	}
+	return n == 1, nil
+}
+
+var chars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+func randKey(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = chars[rand.Intn(len(chars))]
+	}
+	return string(b)
 }

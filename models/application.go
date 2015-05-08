@@ -55,39 +55,6 @@ func (b *Base) GetApplication(account bson.ObjectId, name string) (application *
 	return
 }
 
-// GetApplications returns a list of Applications.
-func (b *Base) GetApplications(account bson.ObjectId, lp ListParams, lr *ListResult) (err error) {
-	query := bson.M{
-		"account": account,
-		"deleted": false,
-	}
-	return b.getItems("applications", query, lp, lr)
-}
-
-// DeleteApplications deletes all Applications owns by an Account.
-func (b *Base) DeleteApplications(account bson.ObjectId) (err error) {
-	query := bson.M{
-		"account": account,
-		"name":    bson.M{"$ne": "default"},
-	}
-	update := bson.M{
-		"$set": bson.M{
-			"deleted": true,
-		},
-	}
-	if _, err = b.db.C("applications").UpdateAll(query, update); err == nil {
-		query = bson.M{
-			"account": account,
-		}
-		if _, err = b.db.C("queues").UpdateAll(query, update); err == nil {
-			if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
-				_, err = b.db.C("attempts").UpdateAll(query, update)
-			}
-		}
-	}
-	return
-}
-
 // DeleteApplication deletes an Application and all its children.
 func (b *Base) DeleteApplication(account bson.ObjectId, name string) (err error) {
 	if name == "default" {
@@ -114,6 +81,39 @@ func (b *Base) DeleteApplication(account bson.ObjectId, name string) (err error)
 		}
 	}
 	return
+}
+
+// DeleteApplications deletes all Applications owns by an Account.
+func (b *Base) DeleteApplications(account bson.ObjectId) (err error) {
+	query := bson.M{
+		"account": account,
+		"name":    bson.M{"$ne": "default"},
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"deleted": true,
+		},
+	}
+	if _, err = b.db.C("applications").UpdateAll(query, update); err == nil {
+		query = bson.M{
+			"account": account,
+		}
+		if _, err = b.db.C("queues").UpdateAll(query, update); err == nil {
+			if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
+				_, err = b.db.C("attempts").UpdateAll(query, update)
+			}
+		}
+	}
+	return
+}
+
+// GetApplications returns a list of Applications.
+func (b *Base) GetApplications(account bson.ObjectId, lp ListParams, lr *ListResult) (err error) {
+	query := bson.M{
+		"account": account,
+		"deleted": false,
+	}
+	return b.getItems("applications", query, lp, lr)
 }
 
 // EnsureApplicationIndex creates mongo indexes for Application.

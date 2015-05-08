@@ -79,6 +79,20 @@ func GetAccount(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(NewAccountFromModel(account))
 }
 
+// DeleteAccount handles DELETE request on /accounts/:account
+func DeleteAccount(w rest.ResponseWriter, r *rest.Request) {
+	accountID, err := accountParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b := GetBase(r)
+	if err := b.DeleteAccount(accountID); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // GetAccounts ...
 func GetAccounts(w rest.ResponseWriter, r *rest.Request) {
 	b := GetBase(r)
@@ -108,18 +122,4 @@ func GetAccounts(w rest.ResponseWriter, r *rest.Request) {
 		Page:    lr.Page,
 		Pages:   lr.Pages,
 	})
-}
-
-// DeleteAccount handles DELETE request on /accounts/:account
-func DeleteAccount(w rest.ResponseWriter, r *rest.Request) {
-	accountID, err := accountParams(r)
-	if err != nil {
-		rest.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	b := GetBase(r)
-	if err := b.DeleteAccount(accountID); err != nil {
-		rest.Error(w, err.Error(), http.StatusInternalServerError)
-	}
 }

@@ -11,6 +11,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+// AttemptStatuses
 var AttemptStatuses = map[string]bool{
 	"pending": true,
 	"success": true,
@@ -91,6 +92,73 @@ func (b *Base) NewAttempt(task *Task) (*Attempt, error) {
 	return attempt, nil
 }
 
+// GetAttempt returns an Attempt.
+func (b *Base) GetAttempt(attemptID bson.ObjectId) (*Attempt, error) {
+	attempt := &Attempt{}
+	if err := b.db.C("attempts").FindId(attemptID).One(attempt); err != nil {
+		return nil, err
+	}
+	return attempt, nil
+}
+
+// DeletePendingAttempts deletes all pending Attempts for a given Task ID.
+func (b *Base) DeletePendingAttempts(taskID bson.ObjectId) error {
+	query := bson.M{
+		"task_id": taskID,
+		"status":  "pending",
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"deleted": true,
+		},
+	}
+	_, err := b.db.C("attempts").UpdateAll(query, update)
+	return err
+}
+
+// GetAttempts returns a list of Attempts.
+func (b *Base) GetAttempts(account bson.ObjectId, application string, task string, lp ListParams, lr *ListResult) (err error) {
+	query := bson.M{
+		"account":     account,
+		"application": application,
+		"task":        task,
+		"deleted":     false,
+	}
+	if value, ok := lp.Filters["status"]; ok {
+		_, ok := AttemptStatuses[value]
+		if ok {
+			query["status"] = value
+		}
+	}
+	return b.getItems("attempts", query, lp, lr)
+}
+
+// NextAttempt reserves and returns the next Attempt.
+func (b *Base) NextAttempt(ttr int64) (*Attempt, error) {
+	now := time.Now().UnixNano()
+	change := mgo.Change{
+		Update: bson.M{
+			"$set": bson.M{
+				"reserved": now + (ttr * 1000000000),
+			},
+		},
+		ReturnNew: true,
+	}
+	query := bson.M{
+		"status":   "pending",
+		"reserved": bson.M{"$lt": now},
+		"deleted":  false,
+	}
+	attempt := &Attempt{}
+	_, err := b.db.C("attempts").Find(query).Apply(change, attempt)
+	if err == mgo.ErrNotFound {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return attempt, nil
+}
+
 // DoAttempt executes the attempt.
 func (b *Base) DoAttempt(attempt *Attempt) (*Attempt, error) {
 	var data io.Reader
@@ -161,87 +229,6 @@ func (b *Base) TouchAttempt(attemptID bson.ObjectId, seconds int64) error {
 		},
 	}
 	return b.db.C("attempts").UpdateId(attemptID, update)
-}
-
-// GetAttempt returns an Attempt.
-func (b *Base) GetAttempt(attemptID bson.ObjectId) (*Attempt, error) {
-	attempt := &Attempt{}
-	if err := b.db.C("attempts").FindId(attemptID).One(attempt); err != nil {
-		return nil, err
-	}
-	return attempt, nil
-}
-
-// GetAttempts returns a list of Attempts.
-func (b *Base) GetAttempts(account bson.ObjectId, application string, task string, lp ListParams, lr *ListResult) (err error) {
-	query := bson.M{
-		"account":     account,
-		"application": application,
-		"task":        task,
-		"deleted":     false,
-	}
-	if value, ok := lp.Filters["status"]; ok {
-		_, ok := AttemptStatuses[value]
-		if ok {
-			query["status"] = value
-		}
-	}
-	return b.getItems("attempts", query, lp, lr)
-}
-
-// NextAttempt reserves and returns the next Attempt.
-func (b *Base) NextAttempt(ttr int64) (*Attempt, error) {
-	now := time.Now().UnixNano()
-	change := mgo.Change{
-		Update: bson.M{
-			"$set": bson.M{
-				"reserved": now + (ttr * 1000000000),
-			},
-		},
-		ReturnNew: true,
-	}
-	query := bson.M{
-		"status":   "pending",
-		"reserved": bson.M{"$lt": now},
-		"deleted":  false,
-	}
-	attempt := &Attempt{}
-	_, err := b.db.C("attempts").Find(query).Apply(change, attempt)
-	if err == mgo.ErrNotFound {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
-	}
-	return attempt, nil
-}
-
-// DeletePendingAttempts deletes all pending Attempts for a given Task ID.
-func (b *Base) DeletePendingAttempts(taskID bson.ObjectId) error {
-	query := bson.M{
-		"task_id": taskID,
-		"status":  "pending",
-	}
-	update := bson.M{
-		"$set": bson.M{
-			"deleted": true,
-		},
-	}
-	_, err := b.db.C("attempts").UpdateAll(query, update)
-	return err
-}
-
-// DeleteAllAttempts deletes all pending Attempts for a given Task ID.
-func (b *Base) DeleteAllAttempts(taskID bson.ObjectId) error {
-	query := bson.M{
-		"task_id": taskID,
-	}
-	update := bson.M{
-		"$set": bson.M{
-			"deleted": true,
-		},
-	}
-	_, err := b.db.C("attempts").UpdateAll(query, update)
-	return err
 }
 
 // EnsureAttemptIndex creates mongo indexes for Application.

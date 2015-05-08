@@ -70,30 +70,6 @@ func (b *Base) GetQueues(account bson.ObjectId, application string, lp ListParam
 	return b.getItems("queues", query, lp, lr)
 }
 
-// DeleteQueues deletes all Queues owns by an Account.
-func (b *Base) DeleteQueues(account bson.ObjectId, application string) (err error) {
-	query := bson.M{
-		"account":     account,
-		"application": application,
-		"name":        bson.M{"$ne": "default"},
-	}
-	update := bson.M{
-		"$set": bson.M{
-			"deleted": true,
-		},
-	}
-	if _, err = b.db.C("queues").UpdateAll(query, update); err == nil {
-		query = bson.M{
-			"account":     account,
-			"application": application,
-		}
-		if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
-			_, err = b.db.C("attempts").UpdateAll(query, update)
-		}
-	}
-	return
-}
-
 // DeleteQueue deletes an Queue and all its children.
 func (b *Base) DeleteQueue(account bson.ObjectId, application string, name string) (err error) {
 	if name == "default" {
@@ -116,6 +92,30 @@ func (b *Base) DeleteQueue(account bson.ObjectId, application string, name strin
 			"account":     account,
 			"application": application,
 			"queue":       name,
+		}
+		if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
+			_, err = b.db.C("attempts").UpdateAll(query, update)
+		}
+	}
+	return
+}
+
+// DeleteQueues deletes all Queues owns by an Account.
+func (b *Base) DeleteQueues(account bson.ObjectId, application string) (err error) {
+	query := bson.M{
+		"account":     account,
+		"application": application,
+		"name":        bson.M{"$ne": "default"},
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"deleted": true,
+		},
+	}
+	if _, err = b.db.C("queues").UpdateAll(query, update); err == nil {
+		query = bson.M{
+			"account":     account,
+			"application": application,
 		}
 		if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
 			_, err = b.db.C("attempts").UpdateAll(query, update)

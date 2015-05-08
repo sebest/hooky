@@ -9,6 +9,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+// TaskStatuses are the differents statuses that a Task can have.
 var TaskStatuses = map[string]bool{
 	"pending":  true,
 	"retrying": true,
@@ -213,6 +214,57 @@ func (b *Base) GetTask(account bson.ObjectId, application string, name string) (
 	return
 }
 
+// GetTaskByID returns a Task given its ID.
+func (b *Base) GetTaskByID(taskID bson.ObjectId) (task *Task, err error) {
+	task = &Task{}
+	err = b.db.C("tasks").FindId(taskID).One(task)
+	if err == mgo.ErrNotFound {
+		err = nil
+		task = nil
+	}
+	return
+}
+
+// DeleteTask deletes a Task.
+func (b *Base) DeleteTask(account bson.ObjectId, application string, name string) (err error) {
+	query := bson.M{
+		"account":     account,
+		"application": application,
+		"name":        name,
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"deleted": true,
+		},
+	}
+	if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
+		query := bson.M{
+			"account":     account,
+			"application": application,
+			"task":        name,
+		}
+		_, err = b.db.C("attempts").UpdateAll(query, update)
+	}
+	return
+}
+
+// DeleteTasks deletes all Tasks from an Application.
+func (b *Base) DeleteTasks(account bson.ObjectId, application string) (err error) {
+	query := bson.M{
+		"account":     account,
+		"application": application,
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"deleted": true,
+		},
+	}
+	if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
+		_, err = b.db.C("attempts").UpdateAll(query, update)
+	}
+	return
+}
+
 // GetTasks returns a list of Tasks.
 func (b *Base) GetTasks(account bson.ObjectId, application string, lp ListParams, lr *ListResult) (err error) {
 	query := bson.M{
@@ -234,17 +286,6 @@ func (b *Base) GetTasks(account bson.ObjectId, application string, lp ListParams
 		}
 	}
 	return b.getItems("tasks", query, lp, lr)
-}
-
-// GetTaskByID returns a Task given its ID.
-func (b *Base) GetTaskByID(taskID bson.ObjectId) (task *Task, err error) {
-	task = &Task{}
-	err = b.db.C("tasks").FindId(taskID).One(task)
-	if err == mgo.ErrNotFound {
-		err = nil
-		task = nil
-	}
-	return
 }
 
 // NextAttemptForTask enqueue the next Attempt if any and returns it.
@@ -294,46 +335,6 @@ func (b *Base) NextAttemptForTask(taskID bson.ObjectId, status string) (attempt 
 	_, err = b.db.C("tasks").FindId(taskID).Apply(change, task)
 	if task.Active && task.At != 0 && !task.Deleted {
 		attempt, err = b.NewAttempt(task)
-	}
-	return
-}
-
-// DeleteTasks deletes all Tasks from an Application.
-func (b *Base) DeleteTasks(account bson.ObjectId, application string) (err error) {
-	query := bson.M{
-		"account":     account,
-		"application": application,
-	}
-	update := bson.M{
-		"$set": bson.M{
-			"deleted": true,
-		},
-	}
-	if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
-		_, err = b.db.C("attempts").UpdateAll(query, update)
-	}
-	return
-}
-
-// DeleteTask deletes a Task.
-func (b *Base) DeleteTask(account bson.ObjectId, application string, name string) (err error) {
-	query := bson.M{
-		"account":     account,
-		"application": application,
-		"name":        name,
-	}
-	update := bson.M{
-		"$set": bson.M{
-			"deleted": true,
-		},
-	}
-	if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
-		query := bson.M{
-			"account":     account,
-			"application": application,
-			"task":        name,
-		}
-		_, err = b.db.C("attempts").UpdateAll(query, update)
 	}
 	return
 }

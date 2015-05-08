@@ -161,6 +161,38 @@ func GetTask(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(NewTaskFromModel(task))
 }
 
+// DeleteTask ...
+func DeleteTask(w rest.ResponseWriter, r *rest.Request) {
+	accountID, applicationName, taskName, err := taskParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b := GetBase(r)
+	err = b.DeleteTask(accountID, applicationName, taskName)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// DeleteTasks ...
+func DeleteTasks(w rest.ResponseWriter, r *rest.Request) {
+	accountID, applicationName, _, err := taskParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b := GetBase(r)
+	err = b.DeleteTasks(accountID, applicationName)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 // GetTasks ...
 func GetTasks(w rest.ResponseWriter, r *rest.Request) {
 	accountID, applicationName, _, err := taskParams(r)
@@ -196,36 +228,4 @@ func GetTasks(w rest.ResponseWriter, r *rest.Request) {
 		Page:    lr.Page,
 		Pages:   lr.Pages,
 	})
-}
-
-// DeleteTasks ...
-func DeleteTasks(w rest.ResponseWriter, r *rest.Request) {
-	accountID, applicationName, _, err := taskParams(r)
-	if err != nil {
-		rest.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	b := GetBase(r)
-	err = b.DeleteTasks(accountID, applicationName)
-	if err != nil {
-		rest.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-// DeleteTask ...
-func DeleteTask(w rest.ResponseWriter, r *rest.Request) {
-	accountID, applicationName, taskName, err := taskParams(r)
-	if err != nil {
-		rest.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	b := GetBase(r)
-	err = b.DeleteTask(accountID, applicationName, taskName)
-	if err != nil {
-		rest.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 }
