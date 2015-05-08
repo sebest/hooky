@@ -175,6 +175,7 @@ func (b *Base) NewTask(account bson.ObjectId, application string, name string, q
 					"schedule": schedule,
 					"retry":    retry,
 					"auth":     auth,
+					"deleted":  false,
 				},
 			},
 			ReturnNew: true,
@@ -182,7 +183,6 @@ func (b *Base) NewTask(account bson.ObjectId, application string, name string, q
 		query := bson.M{
 			"account":     account,
 			"application": application,
-			"queue":       queue,
 			"name":        name,
 		}
 		_, err = b.db.C("tasks").Find(query).Apply(change, task)

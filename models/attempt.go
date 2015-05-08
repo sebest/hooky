@@ -248,7 +248,7 @@ func (b *Base) DeleteAllAttempts(taskID bson.ObjectId) error {
 func (b *Base) EnsureAttemptIndex() {
 	index := mgo.Index{
 		Key:        []string{"account", "application", "task"},
-		Unique:     true,
+		Unique:     false,
 		Background: false,
 		Sparse:     true,
 	}
