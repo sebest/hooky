@@ -1,0 +1,17 @@
+hooky:
+  build: .
+  command: go run cmd/hookyd/main.go
+  volumes:
+    - .:/go/src/github.com/sebest/hooky
+  environment:
+    - HOOKY_MONGO_URI=mongo/hooky
+  ports:
+    - "8000:8000"
+  links:
+    - mongo
+
+mongo:
+  image: mongo
+  command: mongod --smallfiles --quiet --logpath=/dev/null
+  ports:
+    - "27017"
