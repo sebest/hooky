@@ -15,7 +15,8 @@ import (
 
 var (
 	bind             = flag.String("bind", ":8000", "address to bind on")
-	mongoURI         = flag.String("mongo-uri", "localhost/hooky", "MongoDB URI to connect to.")
+	mongoURI         = flag.String("mongo-uri", "localhost/hooky", "MongoDB URI to connect to")
+	adminPassword    = flag.String("admin-password", "admin", "admin password")
 	maxMongoQuerier  = flag.Int("max-mongo-query", 1, "maximum number of parallel queries on MongoDB")
 	maxHTTPRequester = flag.Int("max-http-request", 20, "maximum number of parallel HTTP requests")
 	touchInterval    = flag.Int("touch-interval", 5, "frequency to update the tasks reservation duration in seconds")
@@ -30,7 +31,7 @@ func main() {
 	}
 	sched := scheduler.New(s, *maxMongoQuerier, *maxHTTPRequester, *touchInterval)
 	sched.Start()
-	ra, err := restapi.New(s)
+	ra, err := restapi.New(s, *adminPassword)
 	if err != nil {
 		log.Fatal(err)
 	}

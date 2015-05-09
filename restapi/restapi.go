@@ -2,6 +2,7 @@ package restapi
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/sebest/hooky/models"
@@ -37,29 +38,40 @@ func (mw *BaseMiddleware) MiddlewareFunc(next rest.HandlerFunc) rest.HandlerFunc
 	}
 }
 
-func authenticate(account string, key string, r *rest.Request) bool {
-	if r.Method == "POST" && r.RequestURI == "/accounts" {
-		return true
+func authenticate(adminPassword string) func(account string, key string, r *rest.Request) bool {
+	return func(account string, key string, r *rest.Request) bool {
+		if account == "admin" && key == adminPassword {
+			return true
+		}
+		b := GetBase(r)
+		if bson.IsObjectIdHex(account) == false {
+			fmt.Printf("Authentication error: invalid account %s", account)
+			return false
+		}
+		res, err := b.AuthenticateAccount(bson.ObjectIdHex(account), key)
+		if err != nil {
+			fmt.Printf("Authentication error: %s\n", err.Error())
+			return false
+		}
+		return res
 	}
-	b := GetBase(r)
-	if bson.IsObjectIdHex(account) == false {
-		fmt.Printf("Invalid account %s", account)
-		return false
-	}
-	res, err := b.AuthenticateAccount(bson.ObjectIdHex(account), key)
-	if err != nil {
-		// TODO
-	}
-	return res
 }
 
-func authorize(account string, r *rest.Request) bool {
-	// TODO check application id
-	return true
+func authorize(adminPassword string) func(account string, r *rest.Request) bool {
+	return func(account string, r *rest.Request) bool {
+		if account == "admin" {
+			return true
+		}
+		url := r.URL.String()
+		if strings.HasPrefix(url, "/accounts/"+account) == true {
+			return true
+		}
+		return false
+	}
 }
 
 // New creates a new instance of the Rest API.
-func New(s *store.Store) (*rest.Api, error) {
+func New(s *store.Store, adminPassword string) (*rest.Api, error) {
 	db := s.DB()
 	models.NewBase(db).EnsureIndex()
 	db.Session.Close()
@@ -71,8 +83,8 @@ func New(s *store.Store) (*rest.Api, error) {
 	})
 	api.Use(&AuthBasicMiddleware{
 		Realm:         "Hooky",
-		Authenticator: authenticate,
-		Authorizator:  authorize,
+		Authenticator: authenticate(adminPassword),
+		Authorizator:  authorize(adminPassword),
 	})
 	router, err := rest.MakeRouter(
 		rest.Post("/accounts", PostAccount),
