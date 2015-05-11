@@ -1,5 +1,6 @@
 package restapi
 
+// TODO make sure that PUT is idempotent otherwise use PATCH
 import (
 	"fmt"
 	"strings"
@@ -85,6 +86,20 @@ func New(s *store.Store, adminPassword string) (*rest.Api, error) {
 		Realm:         "Hooky",
 		Authenticator: authenticate(adminPassword),
 		Authorizator:  authorize(adminPassword),
+	})
+	api.Use(&rest.JsonpMiddleware{
+		CallbackNameKey: "cb",
+	})
+	api.Use(&rest.CorsMiddleware{
+		RejectNonCorsRequests: false,
+		OriginValidator: func(origin string, request *rest.Request) bool {
+			return true
+		},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},
+		AllowedHeaders: []string{
+			"Accept", "Content-Type", "Origin"},
+		AccessControlAllowCredentials: true,
+		AccessControlMaxAge:           3600,
 	})
 	router, err := rest.MakeRouter(
 		rest.Post("/accounts", PostAccount),
