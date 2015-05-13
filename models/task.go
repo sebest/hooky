@@ -167,24 +167,24 @@ func (b *Base) NewTask(account bson.ObjectId, application string, name string, q
 		change := mgo.Change{
 			Update: bson.M{
 				"$set": bson.M{
-					"url":      URL,
-					"method":   method,
-					"headers":  headers,
-					"payload":  payload,
-					"at":       at,
-					"active":   at > 0,
-					"schedule": schedule,
-					"retry":    retry,
-					"auth":     auth,
+					"url":      task.URL,
+					"method":   task.Method,
+					"headers":  task.Headers,
+					"payload":  task.Payload,
+					"at":       task.At,
+					"active":   task.At > 0,
+					"schedule": task.Schedule,
+					"retry":    task.Retry,
+					"auth":     task.HTTPAuth,
 					"deleted":  false,
 				},
 			},
 			ReturnNew: true,
 		}
 		query := bson.M{
-			"account":     account,
-			"application": application,
-			"name":        name,
+			"account":     task.Account,
+			"application": task.Application,
+			"name":        task.Name,
 		}
 		_, err = b.db.C("tasks").Find(query).Apply(change, task)
 		if err == nil {
