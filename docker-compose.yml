@@ -1,6 +1,7 @@
 hooky:
   build: .
-  command: go run cmd/hookyd/main.go
+  working_dir: /go/src/github.com/sebest/hooky
+  command: godep go run cmd/hookyd/main.go
   volumes:
     - .:/go/src/github.com/sebest/hooky
   environment:
