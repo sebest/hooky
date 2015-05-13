@@ -188,10 +188,13 @@ func (b *Base) NewTask(account bson.ObjectId, application string, name string, q
 		}
 		_, err = b.db.C("tasks").Find(query).Apply(change, task)
 		if err == nil {
-			err = b.DeletePendingAttempts(task.ID)
+			var deleted bool
+			deleted, err = b.DeletePendingAttempts(task.ID)
+			if deleted {
+				_, err = b.NewAttempt(task)
+			}
 		}
-	}
-	if err == nil {
+	} else if err == nil {
 		_, err = b.NewAttempt(task)
 	}
 	return

@@ -102,7 +102,7 @@ func (b *Base) GetAttempt(attemptID bson.ObjectId) (*Attempt, error) {
 }
 
 // DeletePendingAttempts deletes all pending Attempts for a given Task ID.
-func (b *Base) DeletePendingAttempts(taskID bson.ObjectId) error {
+func (b *Base) DeletePendingAttempts(taskID bson.ObjectId) (bool, error) {
 	query := bson.M{
 		"task_id": taskID,
 		"status":  "pending",
@@ -112,8 +112,8 @@ func (b *Base) DeletePendingAttempts(taskID bson.ObjectId) error {
 			"deleted": true,
 		},
 	}
-	_, err := b.db.C("attempts").UpdateAll(query, update)
-	return err
+	c, err := b.db.C("attempts").UpdateAll(query, update)
+	return c.Removed > 0, err
 }
 
 // GetAttempts returns a list of Attempts.
