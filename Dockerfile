@@ -1,11 +1,14 @@
-FROM golang
+FROM golang:1.4.2
 
-ADD . /go/src/github.com/sebest/hooky
+ENV GOAPP github.com/sebest/hooky
 
-RUN go get github.com/sebest/hooky/cmd/hookyd
+RUN go get github.com/tools/godep
 
-RUN go install github.com/sebest/hooky/cmd/hookyd
+ADD . /go/src/${GOAPP}
+WORKDIR /go/src/${GOAPP}
 
-ENTRYPOINT /go/bin/hookyd
+RUN godep go install ${GOAPP}/cmd/hookyd
 
 EXPOSE 8000
+
+ENTRYPOINT /go/bin/hookyd
