@@ -113,7 +113,7 @@ func (b *Base) DeletePendingAttempts(taskID bson.ObjectId) (bool, error) {
 		},
 	}
 	c, err := b.db.C("attempts").UpdateAll(query, update)
-	return c.Removed > 0, err
+	return c.Updated > 0, err
 }
 
 // GetAttempts returns a list of Attempts.
