@@ -21,7 +21,7 @@ type Queue struct {
 	Account string `json:"account"`
 
 	// Application is the name of the parent Application.
-	Application string `bson:"application"`
+	Application string `json:"application"`
 
 	// Name is the queue's name.
 	Name string `json:"name"`
