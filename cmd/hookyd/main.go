@@ -23,10 +23,16 @@ func main() {
 	app.Email = "sebastien.estienne@gmail.com"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
-			Name:   "bind",
-			Value:  ":8000",
-			Usage:  "address to bind on",
-			EnvVar: "HOOKY_BIND",
+			Name:   "bind-address",
+			Value:  "",
+			Usage:  "host address to bind on",
+			EnvVar: "HOOKY_BIND_ADDRESS",
+		},
+		cli.StringFlag{
+			Name:   "bind-port",
+			Value:  "8000",
+			Usage:  "port number to bind on",
+			EnvVar: "HOOKY_BIND_PORT,PORT",
 		},
 		cli.StringFlag{
 			Name:   "mongo-uri",
@@ -73,11 +79,14 @@ func main() {
 		server := &graceful.Server{
 			Timeout: 10 * time.Second,
 			Server: &http.Server{
-				Addr:    c.String("bind"),
+				Addr:    c.String("bind-host") + ":" + c.String("bind-port"),
 				Handler: ra.MakeHandler(),
 			},
 		}
-		server.ListenAndServe()
+		err = server.ListenAndServe()
+		if err != nil {
+			log.Fatal(err)
+		}
 		fmt.Println("exiting")
 		sched.Stop()
 		fmt.Println("exited")
