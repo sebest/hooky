@@ -1,6 +1,5 @@
 package restapi
 
-// TODO make sure that PUT is idempotent otherwise use PATCH
 import (
 	"fmt"
 	"strings"

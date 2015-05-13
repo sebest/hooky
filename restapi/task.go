@@ -57,7 +57,7 @@ type Task struct {
 	Executed string `json:"executed,omitempty"`
 
 	// Active is the task active.
-	Active bool `json:"active"`
+	Active *bool `json:"active"`
 
 	// Errors counts the number of attempts that failed.
 	Errors int `json:"errors"`
@@ -97,7 +97,7 @@ func NewTaskFromModel(task *models.Task) *Task {
 		At:          UnixToRFC3339(int64(task.At / 1000000000)),
 		Status:      task.Status,
 		Executed:    UnixToRFC3339(task.Executed),
-		Active:      task.Active,
+		Active:      &task.Active,
 		Executions:  task.Executions,
 		Errors:      task.Errors,
 		LastSuccess: UnixToRFC3339(task.LastSuccess),
@@ -131,8 +131,14 @@ func PutTask(w rest.ResponseWriter, r *rest.Request) {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	var active bool
+	if rt.Active == nil {
+		active = true
+	} else {
+		active = *rt.Active
+	}
 	b := GetBase(r)
-	task, err := b.NewTask(accountID, applicationName, taskName, rt.Queue, rt.URL, rt.HTTPAuth, rt.Method, rt.Headers, rt.Payload, rt.Schedule, rt.Retry)
+	task, err := b.NewTask(accountID, applicationName, taskName, rt.Queue, rt.URL, rt.HTTPAuth, rt.Method, rt.Headers, rt.Payload, rt.Schedule, rt.Retry, active)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return

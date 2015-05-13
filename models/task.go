@@ -101,7 +101,7 @@ func nextRun(schedule string) (int64, error) {
 }
 
 // NewTask creates a new Task.
-func (b *Base) NewTask(account bson.ObjectId, application string, name string, queue string, URL string, auth HTTPAuth, method string, headers map[string]string, payload string, schedule string, retry Retry) (task *Task, err error) {
+func (b *Base) NewTask(account bson.ObjectId, application string, name string, queue string, URL string, auth HTTPAuth, method string, headers map[string]string, payload string, schedule string, retry Retry, active bool) (task *Task, err error) {
 	taskID := bson.NewObjectId()
 	// If no name is provided we use the Task ID
 	if name == "" {
@@ -143,7 +143,6 @@ func (b *Base) NewTask(account bson.ObjectId, application string, name string, q
 	if retry.Max == 0 {
 		retry.Max = 300
 	}
-
 	// Create a new `Task` and store it.
 	task = &Task{
 		ID:          taskID,
@@ -158,7 +157,7 @@ func (b *Base) NewTask(account bson.ObjectId, application string, name string, q
 		Payload:     payload,
 		At:          at,
 		Status:      "pending",
-		Active:      at > 0,
+		Active:      at > 0 && active,
 		Schedule:    schedule,
 		Retry:       retry,
 	}
@@ -172,7 +171,7 @@ func (b *Base) NewTask(account bson.ObjectId, application string, name string, q
 					"headers":  task.Headers,
 					"payload":  task.Payload,
 					"at":       task.At,
-					"active":   task.At > 0,
+					"active":   task.At > 0 && active,
 					"schedule": task.Schedule,
 					"retry":    task.Retry,
 					"auth":     task.HTTPAuth,
