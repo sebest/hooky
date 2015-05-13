@@ -1,0 +1,42 @@
+{
+	"ImportPath": "github.com/sebest/hooky",
+	"GoVersion": "go1.4.2",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/ant0ine/go-json-rest/rest",
+			"Comment": "v3.1.0-4-g244c490",
+			"Rev": "244c490a2e45684d70f32e846d35db3321706411"
+		},
+		{
+			"ImportPath": "github.com/codegangsta/cli",
+			"Comment": "1.2.0-66-g6086d79",
+			"Rev": "6086d7927ec35315964d9fea46df6c04e6d697c1"
+		},
+		{
+			"ImportPath": "github.com/robfig/cron",
+			"Comment": "v1-2-g67823cd",
+			"Rev": "67823cd24dece1b04cced3a0a0b3ca2bc84d875e"
+		},
+		{
+			"ImportPath": "github.com/stretchr/graceful",
+			"Comment": "v1-3-g147ae82",
+			"Rev": "147ae82f68aa1aad4db0a228cfb3995ad42ad879"
+		},
+		{
+			"ImportPath": "golang.org/x/net/netutil",
+			"Rev": "614fbbebc9fd409185656c66a2d860ad01907316"
+		},
+		{
+			"ImportPath": "gopkg.in/mgo.v2",
+			"Comment": "r2015.01.24",
+			"Rev": "c6a7dce14133ccac2dcac3793f1d6e2ef048503a"
+		},
+		{
+			"ImportPath": "gopkg.in/yaml.v2",
+			"Rev": "49c95bdc21843256fb6c4e0d370a05f24a0bf213"
+		}
+	]
+}
