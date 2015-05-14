@@ -1,0 +1,503 @@
+swagger: '2.0'
+
+info:
+  version: "1.0"
+  title: "Hooky: A Web task manager"
+
+consumes:
+  - application/json
+
+produces:
+  - application/json
+
+paths:
+  /accounts:
+    get:
+      description: List of `Account` objects.
+      parameters:
+        - name: page
+          in: query
+          description: the page number for the list
+          required: false
+          type: integer
+          format: int32
+        - name: limit
+          in: query
+          description: the number of items per page
+          required: false
+          type: integer
+          format: in32
+        - name: filters
+          in: query
+          description: the filters to apply to the list
+          required: false
+          type: integer
+          format: in32
+      responses:
+        200:
+          description: successful operation
+          schema:
+            $ref: '#/definitions/Accounts'
+          examples:
+            application/json:
+              list:
+                - id: "554da1a1b09b880007000001"
+                  key: "qqcv6l0Bi2Z3Oc8ahzMMFY4ndfFYldlq"
+                  created: "2015-05-09T05:56:49Z"
+                - id: "554da2856619de0006000001"
+                  key: "vTvZcchKq9bhExveN4qW6X42pAgB5q6i"
+                  created: "2015-05-09T06:00:37Z"
+                - id: "554da28a6619de0006000004"
+                  key: "1Vm5rYEzwnuDVIh0OxCwWLaaFGqIoy0J"
+                  created: "2015-05-09T06:00:42Z"
+              page: 1
+              pages: 1
+              total: 3
+              count: 3
+              hasMore: false
+
+  /accounts/{account}:
+    get:
+      description: Get an `Account` object
+      parameters:
+        - name: account
+          in: path
+          description: account ID
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+          schema:
+            $ref: '#/definitions/Account'
+
+  /accounts/{account}/applications:
+    get:
+      description: Get a list of `Application` object
+      parameters:
+        - name: account
+          in: path
+          description: account ID
+          required: true
+          type: string
+        - name: page
+          in: query
+          description: the page number for the list
+          required: false
+          type: integer
+          format: int32
+        - name: limit
+          in: query
+          description: the number of items per page
+          required: false
+          type: integer
+          format: in32
+        - name: filters
+          in: query
+          description: the filters to apply to the list
+          required: false
+          type: integer
+          format: in32
+      responses:
+        200:
+          description: successful operation
+          schema:
+            $ref: '#/definitions/Applications'
+
+  /accounts/{account}/applications/{application}:
+    get:
+      description: Get an `Application` object
+      parameters:
+        - name: account
+          in: path
+          description: account ID
+          required: true
+          type: string
+        - name: application
+          in: path
+          description: application name
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+          schema:
+            $ref: '#/definitions/Application'
+
+  /accounts/{account}/applications/{application}/tasks:
+    get:
+      description: Get a list of `Task` object
+      parameters:
+        - name: account
+          in: path
+          description: account ID
+          required: true
+          type: string
+        - name: application
+          in: path
+          description: application name
+          required: true
+          type: string
+        - name: page
+          in: query
+          description: the page number for the list
+          required: false
+          type: integer
+          format: int32
+        - name: limit
+          in: query
+          description: the number of items per page
+          required: false
+          type: integer
+          format: in32
+        - name: filters
+          in: query
+          description: the filters to apply to the list
+          required: false
+          type: integer
+          format: in32
+      responses:
+        200:
+          description: successful operation
+          schema:
+            $ref: '#/definitions/Tasks'
+
+    post:
+      description: Create a `Task` object
+      parameters:
+        - name: account
+          in: path
+          description: account ID
+          required: true
+          type: string
+        - name: application
+          in: path
+          description: application name
+          required: true
+          type: string
+        - in: body
+          name: body
+          description: Task object that must be created
+          required: true
+          schema:
+            $ref: "#/definitions/NewTask"
+      responses:
+        200:
+          description: successful operation
+          schema:
+            $ref: '#/definitions/Task'
+
+  /accounts/{account}/applications/{application}/tasks/{task}:
+    get:
+      description: Get a `Task` object
+      parameters:
+        - name: account
+          in: path
+          description: account ID
+          required: true
+          type: string
+        - name: application
+          in: path
+          description: application name
+          required: true
+          type: string
+        - name: task
+          in: path
+          description: task name
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+          schema:
+            $ref: '#/definitions/Task'
+
+  /accounts/{account}/applications/{application}/tasks/{task}/attempts:
+    get:
+      description: Get a list of `Attempt` object
+      parameters:
+        - name: account
+          in: path
+          description: account ID
+          required: true
+          type: string
+        - name: application
+          in: path
+          description: application name
+          required: true
+          type: string
+        - name: task
+          in: path
+          description: task name
+          required: true
+          type: string
+        - name: page
+          in: query
+          description: the page number for the list
+          required: false
+          type: integer
+          format: int32
+        - name: limit
+          in: query
+          description: the number of items per page
+          required: false
+          type: integer
+          format: in32
+        - name: filters
+          in: query
+          description: the filters to apply to the list
+          required: false
+          type: integer
+          format: in32
+      responses:
+        200:
+          description: successful operation
+          schema:
+            $ref: '#/definitions/Attempts'
+
+  /accounts/{account}/applications/{application}/queues:
+    get:
+      description: Get a list of `Queue` object
+      parameters:
+        - name: account
+          in: path
+          description: account ID
+          required: true
+          type: string
+        - name: application
+          in: path
+          description: application name
+          required: true
+          type: string
+        - name: page
+          in: query
+          description: the page number for the list
+          required: false
+          type: integer
+          format: int32
+        - name: limit
+          in: query
+          description: the number of items per page
+          required: false
+          type: integer
+          format: in32
+        - name: filters
+          in: query
+          description: the filters to apply to the list
+          required: false
+          type: integer
+          format: in32
+      responses:
+        200:
+          description: successful operation
+          schema:
+            $ref: '#/definitions/Queues'
+
+  /accounts/{account}/applications/{application}/queue/{queue}:
+    get:
+      description: Get a `Task` object
+      parameters:
+        - name: account
+          in: path
+          description: account ID
+          required: true
+          type: string
+        - name: application
+          in: path
+          description: application name
+          required: true
+          type: string
+        - name: queue
+          in: path
+          description: queue name
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+          schema:
+            $ref: '#/definitions/Queue'
+
+definitions:
+  Accounts:
+    properties:
+      list:
+        type: array
+        description: List of `Account`.
+        items:
+          $ref: '#/definitions/Account'
+      page:
+        type: integer
+        description: Current page number.
+      pages:
+        type: integer
+        description: Total number of pages.
+      total:
+        type: integer
+        description: Total number of `Account`.
+      count:
+        type: integer
+        description: Number of `Account` in the list.
+      hasMore:
+        type: boolean
+        description: Has more result?
+  Account:
+    properties:
+      id:
+        type: string
+        description: Account ID.
+      key:
+        type: string
+        description: Secret key.
+      created:
+        type: string
+        format: date
+        description: Date the `Account` was created.
+  Queues:
+    properties:
+      list:
+        type: array
+        description: List of `Queue`.
+        items:
+          $ref: '#/definitions/Queue'
+      page:
+        type: integer
+        description: Current page number.
+      pages:
+        type: integer
+        description: Total number of pages.
+      total:
+        type: integer
+        description: Total number of `Queue`.
+      count:
+        type: integer
+        description: Number of `Queue` in the list.
+      hasMore:
+        type: boolean
+        description: Has more result?
+  Queue:
+    properties:
+      id:
+        type: string
+        description: Queue ID.
+      account:
+        type: string
+        description: Account's ID.
+      name:
+        type: string
+        description: Name.
+  Applications:
+    properties:
+      list:
+        type: array
+        description: List of `Application`.
+        items:
+          $ref: '#/definitions/Application'
+      page:
+        type: integer
+        description: Current page number.
+      pages:
+        type: integer
+        description: Total number of pages.
+      total:
+        type: integer
+        description: Total number of `Application`.
+      count:
+        type: integer
+        description: Number of `Application` in the list.
+      hasMore:
+        type: boolean
+        description: Has more result?
+  Application:
+    properties:
+      id:
+        type: string
+        description: Application ID.
+      account:
+        type: string
+        description: Account's ID.
+      name:
+        type: string
+        description: Name.
+  Tasks:
+    properties:
+      list:
+        type: array
+        description: List of `Task`.
+        items:
+          $ref: '#/definitions/Task'
+      page:
+        type: integer
+        description: Current page number.
+      pages:
+        type: integer
+        description: Total number of pages.
+      total:
+        type: integer
+        description: Total number of `Task`.
+      count:
+        type: integer
+        description: Number of `Task` in the list.
+      hasMore:
+        type: boolean
+        description: Has more result?
+  Task:
+    properties:
+      id:
+        type: string
+        description: Task ID.
+      account:
+        type: string
+        description: Account's ID.
+      application:
+        type: string
+        description: Application's name.
+      name:
+        type: string
+        description: Name.
+  NewTask:
+    required:
+      - url
+    properties:
+      method:
+        type: string
+        description: HTTP method to do the request.
+      url:
+        type: string
+        description: URL to request.
+  Attempts:
+    properties:
+      list:
+        type: array
+        description: List of `Attempt`.
+        items:
+          $ref: '#/definitions/Attempt'
+      page:
+        type: integer
+        description: Current page number.
+      pages:
+        type: integer
+        description: Total number of pages.
+      total:
+        type: integer
+        description: Total number of `Attempt`.
+      count:
+        type: integer
+        description: Number of `Attempt` in the list.
+      hasMore:
+        type: boolean
+        description: Has more result?
+  Attempt:
+    properties:
+      id:
+        type: string
+        description: Attempt ID.
+      account:
+        type: string
+        description: Account's ID.
+      application:
+        type: string
+        description: Application's name.
+      task:
+        type: string
+        description: Task's name.
