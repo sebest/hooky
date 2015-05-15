@@ -108,8 +108,11 @@ func NewTaskFromModel(task *models.Task) *Task {
 }
 
 func taskParams(r *rest.Request) (bson.ObjectId, string, string, error) {
+	accountID, err := PathAccountID(r)
+	if err != nil {
+		return accountID, "", "", err
+	}
 	// TODO handle errors
-	accountID := bson.ObjectIdHex(r.PathParam("account"))
 	applicationName := r.PathParam("application")
 	if applicationName == "" {
 		applicationName = "default"

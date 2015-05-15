@@ -25,8 +25,11 @@ type Application struct {
 }
 
 func applicationParams(r *rest.Request) (bson.ObjectId, string, error) {
+	accountID, err := PathAccountID(r)
+	if err != nil {
+		return accountID, "", err
+	}
 	// TODO handle errors
-	accountID := bson.ObjectIdHex(r.PathParam("account"))
 	applicationName := r.PathParam("application")
 	if applicationName == "" {
 		applicationName = "default"

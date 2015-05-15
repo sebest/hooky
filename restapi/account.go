@@ -1,12 +1,18 @@
 package restapi
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/sebest/hooky/models"
 	"gopkg.in/mgo.v2/bson"
+)
+
+var (
+	// ErrInvalidAccountID is returned when an invalid Account ID is found.
+	ErrInvalidAccountID = errors.New("invalid account ID")
 )
 
 // Account is an account to access the service.
@@ -21,10 +27,16 @@ type Account struct {
 	Key string `json:"key"`
 }
 
+func PathAccountID(r *rest.Request) (bson.ObjectId, error) {
+	account := r.PathParam("account")
+	if !bson.IsObjectIdHex(account) {
+		return bson.NewObjectId(), ErrInvalidAccountID
+	}
+	return bson.ObjectIdHex(account), nil
+}
+
 func accountParams(r *rest.Request) (bson.ObjectId, error) {
-	// TODO handle errors
-	accountID := bson.ObjectIdHex(r.PathParam("account"))
-	return accountID, nil
+	return PathAccountID(r)
 }
 
 // NewAccountFromModel returns an API Account given a model Account.

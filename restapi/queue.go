@@ -28,8 +28,11 @@ type Queue struct {
 }
 
 func queueParams(r *rest.Request) (bson.ObjectId, string, string, error) {
+	accountID, err := PathAccountID(r)
+	if err != nil {
+		return accountID, "", "", err
+	}
 	// TODO handle errors
-	accountID := bson.ObjectIdHex(r.PathParam("account"))
 	applicationName := r.PathParam("application")
 	queueName := r.PathParam("queue")
 	return accountID, applicationName, queueName, nil
