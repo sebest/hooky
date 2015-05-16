@@ -2,7 +2,15 @@ swagger: '2.0'
 
 info:
   version: "1.0"
-  title: "Hooky: A Web task manager"
+  title: "Hooky: A Web(hook) tasks manager"
+  description: Hooky is a scheduler for Web(hook) taks.
+
+host: hooky-dev.elasticbeanstalk.com
+
+schemes:
+  - http
+
+basePath: /
 
 consumes:
   - application/json
@@ -10,9 +18,17 @@ consumes:
 produces:
   - application/json
 
+securityDefinitions:
+  owner:
+    type: basic
+  admin:
+    type: basic
+
 paths:
   /accounts:
     get:
+      security:
+        - admin: []
       description: List of `Account` objects.
       parameters:
         - name: page
@@ -56,6 +72,8 @@ paths:
               count: 3
               hasMore: false
     post:
+      security:
+        - admin: []
       description: Create a new `Account`
       responses:
         200:
@@ -70,6 +88,9 @@ paths:
 
   /accounts/{account}:
     get:
+      security:
+        - admin: []
+        - owner: []
       description: Get an `Account` object
       parameters:
         - name: account
@@ -85,6 +106,9 @@ paths:
 
   /accounts/{account}/applications:
     get:
+      security:
+        - admin: []
+        - owner: []
       description: Get a list of `Application` object
       parameters:
         - name: account
@@ -118,6 +142,9 @@ paths:
 
   /accounts/{account}/applications/{application}:
     get:
+      security:
+        - admin: []
+        - owner: []
       description: Get an `Application` object
       parameters:
         - name: account
@@ -138,6 +165,9 @@ paths:
 
   /accounts/{account}/applications/{application}/tasks:
     get:
+      security:
+        - admin: []
+        - owner: []
       description: Get a list of `Task` object
       parameters:
         - name: account
@@ -175,6 +205,9 @@ paths:
             $ref: '#/definitions/Tasks'
 
     post:
+      security:
+        - admin: []
+        - owner: []
       description: Create a `Task` object
       parameters:
         - name: account
@@ -201,6 +234,9 @@ paths:
 
   /accounts/{account}/applications/{application}/tasks/{task}:
     get:
+      security:
+        - admin: []
+        - owner: []
       description: Get a `Task` object
       parameters:
         - name: account
@@ -225,6 +261,9 @@ paths:
             $ref: '#/definitions/Task'
 
     put:
+      security:
+        - admin: []
+        - owner: []
       description: Create a `Task` object
       parameters:
         - name: account
@@ -256,6 +295,9 @@ paths:
 
   /accounts/{account}/applications/{application}/tasks/{task}/attempts:
     get:
+      security:
+        - admin: []
+        - owner: []
       description: Get a list of `Attempt` object
       parameters:
         - name: account
@@ -299,6 +341,9 @@ paths:
 
   /accounts/{account}/applications/{application}/queues:
     get:
+      security:
+        - admin: []
+        - owner: []
       description: Get a list of `Queue` object
       parameters:
         - name: account
@@ -337,6 +382,9 @@ paths:
 
   /accounts/{account}/applications/{application}/queues/{queue}:
     get:
+      security:
+        - admin: []
+        - owner: []
       description: Get a `Task` object
       parameters:
         - name: account
