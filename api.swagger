@@ -55,6 +55,18 @@ paths:
               total: 3
               count: 3
               hasMore: false
+    post:
+      description: Create a new `Account`
+      responses:
+        200:
+          description: successful operation
+          schema:
+            $ref: '#/definitions/Account'
+          examples:
+            application/json:
+                id: "554da1a1b09b880007000001"
+                key: "qqcv6l0Bi2Z3Oc8ahzMMFY4ndfFYldlq"
+                created: "2015-05-09T05:56:49Z"
 
   /accounts/{account}:
     get:
@@ -212,6 +224,36 @@ paths:
           schema:
             $ref: '#/definitions/Task'
 
+    put:
+      description: Create a `Task` object
+      parameters:
+        - name: account
+          in: path
+          description: account ID
+          required: true
+          type: string
+        - name: application
+          in: path
+          description: application name
+          required: true
+          type: string
+        - name: task
+          in: path
+          description: task name
+          required: true
+          type: string
+        - in: body
+          name: body
+          description: Task object that must be created
+          required: true
+          schema:
+            $ref: "#/definitions/NewTask"
+      responses:
+        200:
+          description: successful operation
+          schema:
+            $ref: '#/definitions/Task'
+
   /accounts/{account}/applications/{application}/tasks/{task}/attempts:
     get:
       description: Get a list of `Attempt` object
@@ -293,7 +335,7 @@ paths:
           schema:
             $ref: '#/definitions/Queues'
 
-  /accounts/{account}/applications/{application}/queue/{queue}:
+  /accounts/{account}/applications/{application}/queues/{queue}:
     get:
       description: Get a `Task` object
       parameters:
@@ -351,7 +393,7 @@ definitions:
         description: Secret key.
       created:
         type: string
-        format: date
+        format: dateTime
         description: Date the `Account` was created.
   Queues:
     properties:
@@ -455,16 +497,84 @@ definitions:
       name:
         type: string
         description: Name.
+      queue:
+        type: string
+        description: The name of the parent Queue.
+      method:
+        type: string
+        description: The HTTP method that will be used to execute the request.
+      url:
+        type: string
+        description: The URL that will be requested.
+      headers:
+        $ref: '#/definitions/Headers'
+      auth:
+        $ref: '#/definitions/HTTPAuth'
+      payload:
+        type: string
+        description: An arbitrary data that will be POSTed on the URL.
+      schedule:
+        type: string
+        description: A cron specification describing the recurrency if any.
+      retry:
+        $ref: '#/definitions/Retry'
+      at:
+        type: string
+        format: dateTime
+        description: The date representing the next time a attempt will be executed.
+      status:
+        type: string
+        description: Either `pending`, `retrying`, `canceled`, `success` or `error`
+      executed:
+        type: string
+        format: dateTime
+        description: The date of the last time a attempt was executed.
+      active:
+        type: boolean
+        description: Is the task active.
+      errors:
+        type: integer
+        description: The number of attempts that failed.
+      lastError:
+        type: string
+        format: dateTime
+        description: The date of the last attempt in error status.
+      lastSuccess:
+        type: string
+        format: dateTime
+        description: The date of the last attempt in success status.
+      executions:
+        type: integer
+        description: The number of attempts that were executed.
+      errorRate:
+        type: number
+        format: float
+        description: The rate of errors in percent.
   NewTask:
     required:
       - url
     properties:
+      queue:
+        type: string
+        description: The name of the parent Queue.
       method:
         type: string
-        description: HTTP method to do the request.
+        description: The HTTP method that will be used to execute the request.
       url:
         type: string
-        description: URL to request.
+        description: The URL that will be requested.
+      headers:
+        $ref: '#/definitions/Headers'
+      auth:
+        $ref: '#/definitions/HTTPAuth'
+      payload:
+        type: string
+        description: An arbitrary data that will be POSTed on the URL.
+      schedule:
+        type: string
+        description: A cron specification describing the recurrency if any.
+      retry:
+        $ref: '#/definitions/Retry'
   Attempts:
     properties:
       list:
@@ -501,3 +611,78 @@ definitions:
       task:
         type: string
         description: Task's name.
+      created:
+        type: string
+        format: dateTime
+        description: The date when the Attempt was created.
+      taskID:
+        type: string
+        description: The ID of the parent Task.
+      queue:
+        type: string
+        description: The name of the parent Queue.
+      method:
+        type: string
+        description: The HTTP method that will be used to execute the request.
+      url:
+        type: string
+        description: The URL that will be requested.
+      headers:
+        $ref: '#/definitions/Headers'
+      auth:
+        $ref: '#/definitions/HTTPAuth'
+      payload:
+        type: string
+        description: An arbitrary data that will be POSTed on the URL.
+      schedule:
+        type: string
+        description: A cron specification describing the recurrency if any.
+      at:
+        type: string
+        format: dateTime
+        description: The date representing the next time a attempt will be executed.
+      status:
+        type: string
+        description:  either `pending`, `retrying`, `canceled`, `success` or `error`
+      statusCode:
+        type: integer
+        description: The HTTP status code.
+      statusMessage:
+        type: string
+        description: a human readable message related to the `statusCode`.
+  HTTPAuth:
+    type: object
+    description: The authentication credentials to use to perform the HTTP request.
+    properties:
+      username:
+        type: string
+        description: The username to use for authentication.
+      password:
+        type: string
+        description: The password to use for the authentication.
+  Headers:
+    type: object
+    description: The HTTP headers that will be used schedule executing the request.
+    additionalProperties:
+      type: string
+      description: Value of the header.
+  Retry:
+    type: object
+    description: The parameters for the retries.
+    properties:
+      attempts:
+        type: integer
+        description: The current number of attempts we did.
+      maxAttempts:
+        type: integer
+        description: The maximum number of attempts we will try.
+      factor:
+        type: number
+        format: float
+        description: The actor to increase the duration between each attempts.
+      min:
+        type: integer
+        description: The minimum duration between each attempts in seconds.
+      max:
+        type: integer
+        description: The maximum duration between each attempts in seconds.
