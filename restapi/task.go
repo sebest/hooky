@@ -62,10 +62,10 @@ type Task struct {
 	// Errors counts the number of attempts that failed.
 	Errors int `json:"errors"`
 
-	// LastError is the date of the last attempt in error status
+	// LastError is the date of the last attempt in error status.
 	LastError string `json:"lastError,omitempty"`
 
-	// LastSuccess is the date of the last attempt in success status
+	// LastSuccess is the date of the last attempt in success status.
 	LastSuccess string `json:"lastSuccess,omitempty"`
 
 	// Executions counts the number of attempts that were executed.
