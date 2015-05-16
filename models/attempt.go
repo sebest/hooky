@@ -1,6 +1,7 @@
 package models
 
 import (
+	"expvar"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,6 +10,11 @@ import (
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+)
+
+var (
+	statsAttemptsSuccess = expvar.NewInt("attemptsSuccess")
+	statsAttemptsError   = expvar.NewInt("attemptsError")
 )
 
 // AttemptStatuses
@@ -203,6 +209,11 @@ func (b *Base) DoAttempt(attempt *Attempt) (*Attempt, error) {
 		} else {
 			status = "error"
 		}
+	}
+	if status == "success" {
+		statsAttemptsSuccess.Add(1)
+	} else {
+		statsAttemptsError.Add(1)
 	}
 	change := mgo.Change{
 		Update: bson.M{

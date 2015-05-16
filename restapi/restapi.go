@@ -122,6 +122,7 @@ func New(s *store.Store, adminPassword string) (*rest.Api, error) {
 		rest.Get("/accounts/:account/applications/:application/tasks/:task", GetTask),
 		rest.Delete("/accounts/:account/applications/:application/tasks/:task", DeleteTask),
 		rest.Get("/accounts/:account/applications/:application/tasks/:task/attempts", GetAttempts),
+		rest.Get("/status", GetStatus),
 	)
 	if err != nil {
 		return nil, err
