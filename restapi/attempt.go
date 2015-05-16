@@ -13,7 +13,7 @@ type Attempt struct {
 	// ID is the Attempt ID.
 	ID string `json:"id"`
 
-	// Created is the date schedule the Task was created.
+	// Created is the date when the Attempt was created.
 	Created string `json:"created"`
 
 	// Account is the ID of the Account owning the Task.
@@ -25,8 +25,8 @@ type Attempt struct {
 	// Task is the task's name.
 	Task string `json:"name"`
 
-	// TaskID is the ID of the parent Webtask of this attempt.
-	TaskID string `json:"task_id"`
+	// TaskID is the ID of the parent Task of this attempt.
+	TaskID string `json:"taskID"`
 
 	// Queue is the name of the parent Queue.
 	Queue string `json:"queue"`
@@ -56,10 +56,10 @@ type Attempt struct {
 	Status string `json:"status"`
 
 	// StatusCode is the HTTP status code.
-	StatusCode int32 `json:"status_code,omitempty"`
+	StatusCode int32 `json:"statusCode,omitempty"`
 
-	// StatusMessage is a human readable message related to the Status.
-	StatusMessage string `json:"status_message,omitempty"`
+	// StatusMessage is a human readable message related to the StatusCode.
+	StatusMessage string `json:"statusMessage,omitempty"`
 }
 
 // NewAttemptFromModel returns a Task object for use with the Rest API
