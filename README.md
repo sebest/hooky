@@ -24,7 +24,13 @@ $ hookyd
 - [x] Asynchronous tasks using [Webhooks](http://en.wikipedia.org/wiki/Webhook)
 - [x] Tasks can be scheduled with recurrency using a CRON syntax
 - [x] Configurable `retry` policy
-- [x] Multi-accounts and multi-applications
+- [x] Multi-accounts and multi-applicationsc
+
+## RESTful API
+
+The full API specification is [here]( https://raw.githubusercontent.com/sebest/hooky/master/swagger.yml) using the Swagger specification version 2.0.
+
+You can visualize it [here](http://editor.swagger.io/#/edit?import=https://raw.githubusercontent.com/sebest/hooky/master/swagger.yml).
 
 ## Tutorial
 
