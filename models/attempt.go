@@ -62,6 +62,12 @@ type Attempt struct {
 	// Reserved is a Unix timestamp until when the attempt is reserved by a worker.
 	Reserved int64 `bson:"reserved"`
 
+	// At is a Unix timestamp representing the time a request must be performed.
+	At int64 `bson:"at"`
+
+	// Finished is a Unix timestamp representing the time the attempt finished.
+	Finished int64 `bson:"finished,omitempty"`
+
 	// Status is either `pending`, `success` or `error`
 	Status string `bson:"status"`
 
@@ -90,6 +96,7 @@ func (b *Base) NewAttempt(task *Task) (*Attempt, error) {
 		Headers:     task.Headers,
 		Payload:     task.Payload,
 		Reserved:    task.At,
+		At:          task.At,
 		Status:      "pending",
 	}
 	if err := b.db.C("attempts").Insert(attempt); err != nil {
@@ -218,6 +225,7 @@ func (b *Base) DoAttempt(attempt *Attempt) (*Attempt, error) {
 	change := mgo.Change{
 		Update: bson.M{
 			"$set": bson.M{
+				"finished":       time.Now().Unix(),
 				"status":         status,
 				"status_code":    statusCode,
 				"status_message": statusMessage,

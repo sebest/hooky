@@ -46,11 +46,11 @@ type Attempt struct {
 	// Payload is arbitrary data that will be POSTed on the URL.
 	Payload string `json:"payload,omitempty"`
 
-	// Schedule is a cron specification describing the recurrency if any.
-	Schedule string `json:"schedule,omitempty"`
-
-	// At is a date representing the next time a attempt will be executed.
+	// At is a date representing the time this attempt will be executed.
 	At string `json:"at,omitempty"`
+
+	// Finished is a Unix timestamp representing the time the attempt finished.
+	Finished string `json:"finished,omitempty"`
 
 	// Status is either `pending`, `retrying`, `canceled`, `success` or `error`
 	Status string `json:"status"`
@@ -78,6 +78,8 @@ func NewAttemptFromModel(attempt *models.Attempt) *Attempt {
 		HTTPAuth:      attempt.HTTPAuth,
 		Headers:       attempt.Headers,
 		Payload:       attempt.Payload,
+		At:            UnixToRFC3339(int64(attempt.At / 1000000000)),
+		Finished:      UnixToRFC3339(attempt.Finished),
 		Status:        attempt.Status,
 		StatusCode:    attempt.StatusCode,
 		StatusMessage: attempt.StatusMessage,
