@@ -40,9 +40,6 @@ type Account struct {
 }
 
 type TaskDefaults struct {
-	// Application is the name of the default Application.
-	Application string `yaml:"application"`
-
 	// Queue is the name of the default Queue.
 	Queue string `yaml:"queue"`
 
@@ -57,9 +54,6 @@ type TaskDefaults struct {
 }
 
 type Task struct {
-	// Application is the name of the parent Application.
-	Application *string `yaml:"application,omitempty" json:"-"`
-
 	// Queue is the name of the parent Queue.
 	Queue *string `yaml:"queue,omitempty" json:"queue,omitempty"`
 
@@ -95,6 +89,7 @@ type Crontab struct {
 	Account      Account       `yaml:"account"`
 	TaskDefaults *TaskDefaults `yaml:"tasks_defaults,omitempty"`
 	Tasks        []*Task       `yaml:"tasks"`
+	Application  string        `yaml:"application"`
 }
 
 func NewCrontabFromFile(path string) (*Crontab, error) {
@@ -125,6 +120,12 @@ func newReq(method string, url string, username string, password string, body io
 }
 
 func SyncCrontab(baseURL string, crontab *Crontab) error {
+	// Application
+	app := crontab.Application
+	if app == "" {
+		app = "default"
+	}
+
 	client := &http.Client{}
 
 	currentTasks := make(map[string]bool, 0)
@@ -136,7 +137,8 @@ func SyncCrontab(baseURL string, crontab *Crontab) error {
 		if err != nil {
 			return err
 		}
-		url := fmt.Sprintf("%s/accounts/%s/applications/%s/tasks/%s", baseURL, crontab.Account.ID, "default", task.Name)
+
+		url := fmt.Sprintf("%s/accounts/%s/applications/%s/tasks/%s", baseURL, crontab.Account.ID, app, task.Name)
 		req, err := newReq("PUT", url, crontab.Account.ID, crontab.Account.Key, bytes.NewBuffer(payload))
 		if err != nil {
 			return err
@@ -149,7 +151,7 @@ func SyncCrontab(baseURL string, crontab *Crontab) error {
 	}
 
 	// Find tasks that have a schedule
-	url := fmt.Sprintf("%s/accounts/%s/applications/%s/tasks?filters=schedule:true", baseURL, crontab.Account.ID, "default")
+	url := fmt.Sprintf("%s/accounts/%s/applications/%s/tasks?filters=schedule:true", baseURL, crontab.Account.ID, app)
 	req, err := newReq("GET", url, crontab.Account.ID, crontab.Account.Key, nil)
 	resp, err := client.Do(req)
 	if err != nil {
@@ -172,7 +174,7 @@ func SyncCrontab(baseURL string, crontab *Crontab) error {
 	// Delete tasks that should not be there
 	for _, task := range tasks {
 		if _, ok := currentTasks[task.Name]; ok == false {
-			url := fmt.Sprintf("%s/accounts/%s/applications/%s/tasks/%s", baseURL, crontab.Account.ID, "default", task.Name)
+			url := fmt.Sprintf("%s/accounts/%s/applications/%s/tasks/%s", baseURL, crontab.Account.ID, app, task.Name)
 			req, err := newReq("DELETE", url, crontab.Account.ID, crontab.Account.Key, nil)
 			resp, err := client.Do(req)
 			if err != nil {
