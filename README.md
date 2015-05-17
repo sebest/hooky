@@ -24,7 +24,7 @@ $ hookyd
 - [x] Asynchronous tasks using [Webhooks](http://en.wikipedia.org/wiki/Webhook)
 - [x] Tasks can be scheduled with recurrency using a CRON syntax
 - [x] Configurable `retry` policy
-- [x] Multi-accounts and multi-applicationsc
+- [x] Multi-accounts and multi-applications
 
 ## RESTful API
 
