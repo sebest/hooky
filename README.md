@@ -227,3 +227,11 @@ X-Powered-By: go-json-rest
     "total": 1
 }
 ```
+
+## TODO
+- [ ] Tests
+- [ ] Improve documentation
+- [ ] Stats per application
+- [ ] Stats per queue
+- [ ] Implement rate limiting per queue
+- [ ] Finish crontab support
