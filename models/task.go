@@ -78,7 +78,7 @@ type Task struct {
 	Executions int `bson:"executions,omitempty"`
 
 	// Retry is the retry strategy parameters in case of errors.
-	Retry Retry `bson:"retry"`
+	Retry *Retry `bson:"retry"`
 
 	// Deleted
 	Deleted bool `bson:"deleted"`
@@ -101,15 +101,29 @@ func nextRun(schedule string) (int64, error) {
 }
 
 // NewTask creates a new Task.
-func (b *Base) NewTask(account bson.ObjectId, application string, name string, queue string, URL string, auth HTTPAuth, method string, headers map[string]string, payload string, schedule string, retry Retry, active bool) (task *Task, err error) {
+func (b *Base) NewTask(account bson.ObjectId, applicationName string, name string, queueName string, URL string, auth HTTPAuth, method string, headers map[string]string, payload string, schedule string, retry *Retry, active bool) (task *Task, err error) {
+	application, err := b.GetApplication(account, applicationName)
+	if application == nil {
+		return nil, ErrApplicationNotFound
+	}
+	if err != nil {
+		return
+	}
 	taskID := bson.NewObjectId()
 	// If no name is provided we use the Task ID
 	if name == "" {
 		name = taskID.Hex()
 	}
 	// Default queue is 'default'
-	if queue == "" {
-		queue = "default"
+	if queueName == "" {
+		queueName = "default"
+	}
+	queue, err := b.GetQueue(account, applicationName, queueName)
+	if queue == nil {
+		return nil, ErrQueueNotFound
+	}
+	if err != nil {
+		return
 	}
 	// Default method is POST.
 	if method == "" {
@@ -131,24 +145,21 @@ func (b *Base) NewTask(account bson.ObjectId, application string, name string, q
 		at = time.Now().UnixNano()
 	}
 	// Define default parameters for our retry strategy.
-	if retry.MaxAttempts == 0 {
-		retry.MaxAttempts = 10
+	if retry == nil {
+		if queue.Retry != nil {
+			retry = queue.Retry
+		} else {
+			retry = &Retry{}
+		}
 	}
-	if retry.Factor == 0 {
-		retry.Factor = 2
-	}
-	if retry.Min == 0 {
-		retry.Min = 10
-	}
-	if retry.Max == 0 {
-		retry.Max = 300
-	}
+	retry.SetDefault()
+
 	// Create a new `Task` and store it.
 	task = &Task{
 		ID:          taskID,
 		Account:     account,
-		Application: application,
-		Queue:       queue,
+		Application: applicationName,
+		Queue:       queueName,
 		Name:        name,
 		URL:         URL,
 		HTTPAuth:    auth,

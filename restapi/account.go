@@ -61,7 +61,7 @@ func PostAccount(w rest.ResponseWriter, r *rest.Request) {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	_, err = b.NewQueue(account.ID, "default", "default")
+	_, err = b.NewQueue(account.ID, "default", "default", nil)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return

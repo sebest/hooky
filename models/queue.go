@@ -11,6 +11,8 @@ import (
 var (
 	// ErrDeleteDefaultQueue is returned when trying to delete the default queue.
 	ErrDeleteDefaultQueue = errors.New("can not delete default queue")
+	// ErrQueueNotFound is returned when the queue does not exist.
+	ErrQueueNotFound = errors.New("queue does not exist")
 )
 
 // Queue ...
@@ -27,19 +29,52 @@ type Queue struct {
 	// Name is the Queue's name.
 	Name string `bson:"name"`
 
+	// Retry is the retry strategy parameters in case of errors.
+	Retry *Retry `bson:"retry"`
+
 	// Deleted
 	Deleted bool `bson:"deleted"`
 }
 
 // NewQueue creates a new Queue.
-func (b *Base) NewQueue(account bson.ObjectId, application string, name string) (queue *Queue, err error) {
+func (b *Base) NewQueue(account bson.ObjectId, applicationName string, name string, retry *Retry) (queue *Queue, err error) {
+	application, err := b.GetApplication(account, applicationName)
+	if application == nil {
+		return nil, ErrApplicationNotFound
+	}
+	if err != nil {
+		return
+	}
+	// Define default parameters for our retry strategy.
+	if retry == nil {
+		retry = &Retry{}
+	}
+	retry.SetDefault()
+
 	queue = &Queue{
 		ID:          bson.NewObjectId(),
 		Account:     account,
-		Application: application,
+		Application: applicationName,
 		Name:        name,
+		Retry:       retry,
 	}
 	err = b.db.C("queues").Insert(queue)
+	if mgo.IsDup(err) {
+		change := mgo.Change{
+			Update: bson.M{
+				"$set": bson.M{
+					"retry": queue.Retry,
+				},
+			},
+			ReturnNew: true,
+		}
+		query := bson.M{
+			"account":     queue.Account,
+			"application": queue.Application,
+			"name":        queue.Name,
+		}
+		_, err = b.db.C("queues").Find(query).Apply(change, queue)
+	}
 	return
 }
 

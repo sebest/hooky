@@ -344,7 +344,7 @@ paths:
       security:
         - admin: []
         - owner: []
-      description: Get a list of `Queue` object
+      description: Get a list of `Queue` objects
       parameters:
         - name: account
           in: path
@@ -385,7 +385,7 @@ paths:
       security:
         - admin: []
         - owner: []
-      description: Get a `Task` object
+      description: Get a `Queue` object
       parameters:
         - name: account
           in: path
@@ -402,6 +402,38 @@ paths:
           description: queue name
           required: true
           type: string
+      responses:
+        200:
+          description: successful operation
+          schema:
+            $ref: '#/definitions/Queue'
+    put:
+      security:
+        - admin: []
+        - owner: []
+      description: Create a `Queue` object
+      parameters:
+        - name: account
+          in: path
+          description: account ID
+          required: true
+          type: string
+        - name: application
+          in: path
+          description: application name
+          required: true
+          type: string
+        - name: queue
+          in: path
+          description: queue name
+          required: true
+          type: string
+        - in: body
+          name: body
+          description: Queue object that must be created
+          required: true
+          schema:
+            $ref: "#/definitions/NewQueue"
       responses:
         200:
           description: successful operation
@@ -476,6 +508,13 @@ definitions:
       name:
         type: string
         description: Name.
+      retry:
+        $ref: '#/definitions/Retry'
+  NewQueue:
+    properties:
+      retry:
+        $ref: '#/definitions/Retry'
+
   Applications:
     properties:
       list:

@@ -75,7 +75,7 @@ type Task struct {
 	ErrorRate int `json:"errorRate"`
 
 	// Retry is the retry strategy parameters in case of errors.
-	Retry models.Retry `json:"retry"`
+	Retry *models.Retry `json:"retry"`
 }
 
 // NewTaskFromModel returns a Task object for use with the Rest API

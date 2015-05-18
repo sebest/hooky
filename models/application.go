@@ -11,6 +11,8 @@ import (
 var (
 	// ErrDeleteDefaultApplication is returned when trying to delete the default application.
 	ErrDeleteDefaultApplication = errors.New("can not delete default application")
+	// ErrApplicationNotFound is returned when the application does not exist.
+	ErrApplicationNotFound = errors.New("application does not exist")
 )
 
 // Application is a list of recurring Tasks.

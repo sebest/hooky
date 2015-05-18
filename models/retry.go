@@ -13,6 +13,10 @@ var (
 	ErrMaxAttemptsExceeded = errors.New("maximum of attempts exceeded")
 )
 
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
+
 type Retry struct {
 	// Attempts is the current number of attempts we did.
 	Attempts int `bson:"attempts" json:"attempts"`
@@ -26,7 +30,7 @@ type Retry struct {
 	Max int `bson:"max" json:"max"`
 }
 
-func (r Retry) NextAttempt(now int64) (int64, error) {
+func (r *Retry) NextAttempt(now int64) (int64, error) {
 	if r.MaxAttempts > 0 && r.Attempts+1 >= r.MaxAttempts {
 		return 0, ErrMaxAttemptsExceeded
 	}
@@ -46,6 +50,17 @@ func (r Retry) NextAttempt(now int64) (int64, error) {
 	return now + int64(next*1000000000), nil
 }
 
-func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
+func (r *Retry) SetDefault() {
+	if r.MaxAttempts == 0 {
+		r.MaxAttempts = 10
+	}
+	if r.Factor == 0 {
+		r.Factor = 2
+	}
+	if r.Min == 0 {
+		r.Min = 10
+	}
+	if r.Max == 0 {
+		r.Max = 300
+	}
 }

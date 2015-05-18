@@ -234,4 +234,5 @@ X-Powered-By: go-json-rest
 - [ ] Stats per application
 - [ ] Stats per queue
 - [ ] Implement rate limiting per queue
+- [ ] Implement concurrency limiting per queue
 - [ ] Finish crontab support

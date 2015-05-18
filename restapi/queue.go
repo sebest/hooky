@@ -25,6 +25,9 @@ type Queue struct {
 
 	// Name is the queue's name.
 	Name string `json:"name"`
+
+	// Retry is the retry strategy parameters in case of errors.
+	Retry *models.Retry `json:"retry"`
 }
 
 func queueParams(r *rest.Request) (bson.ObjectId, string, string, error) {
@@ -47,6 +50,7 @@ func NewQueueFromModel(queue *models.Queue) *Queue {
 		Account:     queue.Account.Hex(),
 		Application: queue.Application,
 		Name:        queue.Name,
+		Retry:       queue.Retry,
 	}
 }
 
@@ -64,7 +68,7 @@ func PutQueue(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 	b := GetBase(r)
-	queue, err := b.NewQueue(accountID, applicationName, queueName)
+	queue, err := b.NewQueue(accountID, applicationName, queueName, rc.Retry)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
