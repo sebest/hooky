@@ -252,13 +252,22 @@ func (b *Base) TouchAttempt(attemptID bson.ObjectId, seconds int64) error {
 
 // EnsureAttemptIndex creates mongo indexes for Application.
 func (b *Base) EnsureAttemptIndex() {
-	index := mgo.Index{
+	index1 := mgo.Index{
 		Key:        []string{"account", "application", "task"},
 		Unique:     false,
 		Background: false,
 		Sparse:     true,
 	}
-	if err := b.db.C("attempts").EnsureIndex(index); err != nil {
+	if err := b.db.C("attempts").EnsureIndex(index1); err != nil {
+		fmt.Printf("Error creating index on attempts: %s\n", err)
+	}
+	index2 := mgo.Index{
+		Key:        []string{"status", "reserved", "deleted"},
+		Unique:     false,
+		Background: true,
+		Sparse:     true,
+	}
+	if err := b.db.C("attempts").EnsureIndex(index2); err != nil {
 		fmt.Printf("Error creating index on attempts: %s\n", err)
 	}
 }
