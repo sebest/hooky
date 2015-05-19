@@ -81,10 +81,16 @@ func New(s *store.Store, adminPassword string) (*rest.Api, error) {
 	api.Use(&BaseMiddleware{
 		Store: s,
 	})
-	api.Use(&AuthBasicMiddleware{
+	authBasic := &AuthBasicMiddleware{
 		Realm:         "Hooky",
 		Authenticator: authenticate(adminPassword),
 		Authorizator:  authorize(adminPassword),
+	}
+	api.Use(&rest.IfMiddleware{
+		Condition: func(r *rest.Request) bool {
+			return strings.HasPrefix(r.URL.Path, "/accounts")
+		},
+		IfTrue: authBasic,
 	})
 	api.Use(&rest.JsonpMiddleware{
 		CallbackNameKey: "cb",
