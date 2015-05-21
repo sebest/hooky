@@ -22,7 +22,7 @@ func (b *Base) getItems(collection string, query bson.M, lp ListParams, lr *List
 	if lr.Total, err = b.db.C(collection).Find(query).Count(); err != nil {
 		return
 	}
-	lr.Pages = (lr.Total / limit) + 1
+	lr.Pages = (lr.Total / limit)
 	if skip < lr.Total {
 		if err = b.db.C(collection).Find(query).Skip(skip).Limit(limit).All(lr.List); err != nil {
 			return
