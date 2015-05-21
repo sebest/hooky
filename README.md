@@ -25,6 +25,15 @@ $ hookyd
 - [x] Tasks can be scheduled with recurrency using a CRON syntax
 - [x] Configurable `retry` policy
 - [x] Multi-accounts and multi-applications
+- [ ] Tests
+- [ ] Improve documentation
+- [ ] Stats per application
+- [ ] Stats per queue
+- [ ] Implement rate limiting per queue
+- [ ] Implement concurrency limiting per queue
+- [ ] Finish crontab support
+- [ ] Implement delayed tasks
+- [ ] New application should have a default queue
 
 ## RESTful API
 
@@ -227,13 +236,3 @@ X-Powered-By: go-json-rest
     "total": 1
 }
 ```
-
-## TODO
-- [ ] Tests
-- [ ] Improve documentation
-- [ ] Stats per application
-- [ ] Stats per queue
-- [ ] Implement rate limiting per queue
-- [ ] Implement concurrency limiting per queue
-- [ ] Finish crontab support
-- [ ] Implement delayed tasks
