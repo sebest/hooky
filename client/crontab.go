@@ -148,6 +148,13 @@ func SyncCrontab(baseURL string, crontab *Crontab) error {
 			return err
 		}
 		defer resp.Body.Close()
+		respBody, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != 200 {
+			fmt.Println(string(respBody))
+		}
 	}
 
 	// Find tasks that have a schedule
