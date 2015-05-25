@@ -26,6 +26,11 @@
 			"Rev": "147ae82f68aa1aad4db0a228cfb3995ad42ad879"
 		},
 		{
+			"ImportPath": "github.com/tj/go-debug",
+			"Comment": "v2.0.0",
+			"Rev": "ff4a55a20a86994118644bbddc6a216da193cc13"
+		},
+		{
 			"ImportPath": "golang.org/x/net/netutil",
 			"Rev": "614fbbebc9fd409185656c66a2d860ad01907316"
 		},
