@@ -58,8 +58,10 @@ func PutApplication(w rest.ResponseWriter, r *rest.Request) {
 
 	rc := &Application{}
 	if err := r.DecodeJsonPayload(rc); err != nil {
-		rest.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		if err != rest.ErrJSONPayloadEmpty {
+			rest.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 	b := GetBase(r)
 	application, err := b.NewApplication(accountID, applicationName)
