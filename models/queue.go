@@ -8,6 +8,11 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+const (
+	// DefaultMaxInFlight is the maximum number of tasks executed in parallel.
+	DefaultMaxInFlight = 10
+)
+
 var (
 	// ErrDeleteDefaultQueue is returned when trying to delete the default queue.
 	ErrDeleteDefaultQueue = errors.New("can not delete default queue")
@@ -34,10 +39,19 @@ type Queue struct {
 
 	// Deleted
 	Deleted bool `bson:"deleted"`
+
+	// MaxInFlight is the maximum number of attempts executed in parallel.
+	MaxInFlight int `bson:"max_in_flight"`
+
+	// AvailableInFlight is the available number of slots to execute tasks in parallel.
+	AvailableInFlight int `bson:"available_in_flight"`
+
+	// AttemptsInFlight is the list of attempts currently in flight.
+	AttemptsInFlight []bson.ObjectId `bson:"attempts_in_flight"`
 }
 
 // NewQueue creates a new Queue.
-func (b *Base) NewQueue(account bson.ObjectId, applicationName string, name string, retry *Retry) (queue *Queue, err error) {
+func (b *Base) NewQueue(account bson.ObjectId, applicationName string, name string, retry *Retry, maxInFlight int) (queue *Queue, err error) {
 	application, err := b.GetApplication(account, applicationName)
 	if application == nil {
 		return nil, ErrApplicationNotFound
@@ -50,28 +64,42 @@ func (b *Base) NewQueue(account bson.ObjectId, applicationName string, name stri
 		retry = &Retry{}
 	}
 	retry.SetDefault()
+	// Define default parameter for maxInFlight.
+	if maxInFlight == 0 {
+		maxInFlight = DefaultMaxInFlight
+	}
 
 	queue = &Queue{
-		ID:          bson.NewObjectId(),
-		Account:     account,
-		Application: applicationName,
-		Name:        name,
-		Retry:       retry,
+		ID:                bson.NewObjectId(),
+		Account:           account,
+		Application:       applicationName,
+		Name:              name,
+		Retry:             retry,
+		MaxInFlight:       maxInFlight,
+		AvailableInFlight: maxInFlight,
 	}
 	err = b.db.C("queues").Insert(queue)
 	if mgo.IsDup(err) {
-		change := mgo.Change{
-			Update: bson.M{
-				"$set": bson.M{
-					"retry": queue.Retry,
-				},
-			},
-			ReturnNew: true,
-		}
 		query := bson.M{
 			"account":     queue.Account,
 			"application": queue.Application,
 			"name":        queue.Name,
+		}
+		if err = b.db.C("queues").Find(query).One(queue); err != nil {
+			return nil, err
+		}
+		incMaxInFlight := maxInFlight - queue.MaxInFlight
+		change := mgo.Change{
+			Update: bson.M{
+				"$set": bson.M{
+					"retry": retry,
+				},
+				"$inc": bson.M{
+					"max_in_flight":       incMaxInFlight,
+					"available_in_flight": incMaxInFlight,
+				},
+			},
+			ReturnNew: true,
 		}
 		_, err = b.db.C("queues").Find(query).Apply(change, queue)
 	}
@@ -156,6 +184,55 @@ func (b *Base) DeleteQueues(account bson.ObjectId, application string) (err erro
 			_, err = b.db.C("attempts").UpdateAll(query, update)
 		}
 	}
+	return
+}
+
+// QueueFull checks if a queue reached its max_in_flight.
+func (b *Base) QueueFull(queueID bson.ObjectId, attemptID bson.ObjectId) (full bool, err error) {
+	query := bson.M{
+		"_id":                queueID,
+		"attempts_in_flight": attemptID,
+	}
+	nb, err := b.db.C("queues").Find(query).Count()
+	if err != nil && err != mgo.ErrNotFound {
+		return false, err
+	}
+	if nb == 1 {
+		return false, nil
+	}
+	query = bson.M{
+		"_id": queueID,
+		"available_in_flight": bson.M{"$ne": 0},
+	}
+	update := bson.M{
+		"$inc":  bson.M{"available_in_flight": -1},
+		"$push": bson.M{"attempts_in_flight": attemptID},
+	}
+	if err := b.db.C("queues").Update(query, update); err != nil {
+		if err == mgo.ErrNotFound {
+			return true, nil
+		}
+		return false, err
+	}
+	return false, nil
+}
+
+// FillQueue increases the available_in_flight by one.
+func (b *Base) FillQueue(queueID bson.ObjectId, attemptID bson.ObjectId) (err error) {
+	query := bson.M{
+		"_id":                queueID,
+		"attempts_in_flight": attemptID,
+	}
+	update := bson.M{
+		"$inc":  bson.M{"available_in_flight": 1},
+		"$pull": bson.M{"attempts_in_flight": attemptID},
+	}
+	err = b.db.C("queues").Update(query, update)
+	return
+}
+
+// FixQueues fixes unconsistencies with available_in_flight.
+func (b *Base) FixQueues() (err error) {
 	return
 }
 

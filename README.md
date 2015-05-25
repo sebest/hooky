@@ -25,15 +25,14 @@ $ hookyd
 - [x] Tasks can be scheduled with recurrency using a CRON syntax
 - [x] Configurable `retry` policy
 - [x] Multi-accounts and multi-applications
+- [X] Concurrency limit per Queue
+- [X] Stats per Task
+- [ ] Stats per Queue
+- [ ] Stats per Application
+- [ ] Crontabs
+- [ ] Delayed Tasks
+- [ ] Full documentation
 - [ ] Tests
-- [ ] Improve documentation
-- [ ] Stats per application
-- [ ] Stats per queue
-- [ ] Implement rate limiting per queue
-- [ ] Implement concurrency limiting per queue
-- [ ] Finish crontab support
-- [ ] Implement delayed tasks
-- [ ] New application should have a default queue
 
 ## RESTful API
 

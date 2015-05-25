@@ -18,7 +18,7 @@ var TaskStatuses = map[string]bool{
 	"error":    true,
 }
 
-// Task describes a Webtask.
+// Task describes a Task.
 type Task struct {
 	// ID is the ID of the Task.
 	ID bson.ObjectId `bson:"_id"`
@@ -34,6 +34,9 @@ type Task struct {
 
 	// Queue is the name of the parent Queue.
 	Queue string `bson:"queue"`
+
+	// QueueID is the ID of the parent Queue
+	QueueID bson.ObjectId `bson:"queue_id"`
 
 	// URL is the URL that the worker with requests.
 	URL string `bson:"url"`
@@ -133,7 +136,7 @@ func (b *Base) NewTask(account bson.ObjectId, applicationName string, name strin
 	if method != "POST" {
 		payload = ""
 	}
-	// If `schedule` is defined we compute the next date of the first attempt,
+	// If schedule is defined we compute the next date of the first attempt,
 	// otherwise it is right now.
 	var at int64
 	if schedule != "" {
@@ -154,12 +157,13 @@ func (b *Base) NewTask(account bson.ObjectId, applicationName string, name strin
 	}
 	retry.SetDefault()
 
-	// Create a new `Task` and store it.
+	// Create a new Task and store it.
 	task = &Task{
 		ID:          taskID,
 		Account:     account,
 		Application: applicationName,
-		Queue:       queueName,
+		Queue:       queue.Name,
+		QueueID:     queue.ID,
 		Name:        name,
 		URL:         URL,
 		HTTPAuth:    auth,

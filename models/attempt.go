@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tj/go-debug"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -15,6 +16,7 @@ import (
 var (
 	statsAttemptsSuccess = expvar.NewInt("attemptsSuccess")
 	statsAttemptsError   = expvar.NewInt("attemptsError")
+	ModelsAttemptDebug   = debug.Debug("hooky.models.attempt")
 )
 
 // AttemptStatuses
@@ -38,11 +40,14 @@ type Attempt struct {
 	// Task is the task's name.
 	Task string `bson:"task"`
 
-	// TaskID is the ID of the parent Webtask of this attempt.
+	// TaskID is the ID of the parent Task of this attempt.
 	TaskID bson.ObjectId `bson:"task_id"`
 
 	// Queue is the name of the parent Queue.
 	Queue string `bson:"queue"`
+
+	// QueueID is the ID of the parent Queue
+	QueueID bson.ObjectId `bson:"queue_id"`
 
 	// URL is the URL that the worker with requests.
 	URL string `bson:"url"`
@@ -89,6 +94,7 @@ func (b *Base) NewAttempt(task *Task) (*Attempt, error) {
 		Account:     task.Account,
 		Application: task.Application,
 		Queue:       task.Queue,
+		QueueID:     task.QueueID,
 		Task:        task.Name,
 		URL:         task.URL,
 		HTTPAuth:    task.HTTPAuth,
@@ -148,6 +154,7 @@ func (b *Base) GetAttempts(account bson.ObjectId, application string, task strin
 
 // NextAttempt reserves and returns the next Attempt.
 func (b *Base) NextAttempt(ttr int64) (*Attempt, error) {
+	var fullQueues []bson.ObjectId
 	now := time.Now().UnixNano()
 	change := mgo.Change{
 		Update: bson.M{
@@ -162,60 +169,87 @@ func (b *Base) NextAttempt(ttr int64) (*Attempt, error) {
 		"reserved": bson.M{"$lt": now},
 		"deleted":  false,
 	}
-	attempt := &Attempt{}
-	_, err := b.db.C("attempts").Find(query).Apply(change, attempt)
-	if err == mgo.ErrNotFound {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
+	for {
+		if len(fullQueues) > 0 {
+			query["queue_id"] = bson.M{"$nin": fullQueues}
+		}
+		attempt := &Attempt{}
+		_, err := b.db.C("attempts").Find(query).Apply(change, attempt)
+		if err == mgo.ErrNotFound {
+			// ModelsAttemptDebug("No attempt found")
+			return nil, nil
+		} else if err != nil {
+			return nil, err
+		}
+		full, err := b.QueueFull(attempt.QueueID, attempt.ID)
+		if err != nil {
+			return nil, err
+		}
+		if !full {
+			ModelsAttemptDebug("Found an attempt in queue %s", attempt.QueueID)
+			return attempt, nil
+		}
+		ModelsAttemptDebug("Queue %s full", attempt.QueueID)
+		fullQueues = append(fullQueues, attempt.QueueID)
 	}
-	return attempt, nil
 }
 
 // DoAttempt executes the attempt.
 func (b *Base) DoAttempt(attempt *Attempt) (*Attempt, error) {
-	var data io.Reader
-	contentType := "text/plain"
-	if attempt.Method == "POST" && attempt.Payload != "" {
-		data = strings.NewReader(attempt.Payload)
-		if attempt.Payload[0] == '{' {
-			contentType = "application/json"
-		}
-	}
-	req, err := http.NewRequest(attempt.Method, attempt.URL, data)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("User-Agent", "Hooky")
-	req.Header.Add("X-Hooky-Account", attempt.Account.Hex())
-	req.Header.Add("X-Hooky-Application", attempt.Application)
-	req.Header.Add("X-Hooky-Queue", attempt.Queue)
-	req.Header.Add("X-Hooky-Task-Name", attempt.Task)
-	req.Header.Add("X-Hooky-Attempt-ID", attempt.ID.Hex())
-	req.Header.Add("Content-Type", contentType)
-	for k, v := range attempt.Headers {
-		req.Header.Add(k, v)
-	}
-	if attempt.HTTPAuth.Username != "" || attempt.HTTPAuth.Password != "" {
-		req.SetBasicAuth(attempt.HTTPAuth.Username, attempt.HTTPAuth.Password)
-	}
 	var status string
 	var statusMessage string
 	var statusCode int
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		status = "error"
-		statusMessage = err.Error()
+	if strings.HasPrefix(attempt.URL, "test://") {
+		time.Sleep(10 * time.Second)
+		status = "success"
+		statusCode = 200
+		statusMessage = "Test attempt"
 	} else {
-		defer resp.Body.Close()
-		statusMessage = resp.Status
-		statusCode = resp.StatusCode
-		if statusCode == 200 {
-			status = "success"
-		} else {
-			status = "error"
+		var data io.Reader
+		contentType := "text/plain"
+		if attempt.Method == "POST" && attempt.Payload != "" {
+			data = strings.NewReader(attempt.Payload)
+			if attempt.Payload[0] == '{' {
+				contentType = "application/json"
+			}
 		}
+		req, err := http.NewRequest(attempt.Method, attempt.URL, data)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Add("User-Agent", "Hooky")
+		req.Header.Add("X-Hooky-Account", attempt.Account.Hex())
+		req.Header.Add("X-Hooky-Application", attempt.Application)
+		req.Header.Add("X-Hooky-Queue", attempt.Queue)
+		req.Header.Add("X-Hooky-Task-Name", attempt.Task)
+		req.Header.Add("X-Hooky-Attempt-ID", attempt.ID.Hex())
+		req.Header.Add("Content-Type", contentType)
+		for k, v := range attempt.Headers {
+			req.Header.Add(k, v)
+		}
+		if attempt.HTTPAuth.Username != "" || attempt.HTTPAuth.Password != "" {
+			req.SetBasicAuth(attempt.HTTPAuth.Username, attempt.HTTPAuth.Password)
+		}
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			status = "error"
+			statusMessage = err.Error()
+		} else {
+			defer resp.Body.Close()
+			statusMessage = resp.Status
+			statusCode = resp.StatusCode
+			if statusCode == 200 {
+				status = "success"
+			} else {
+				status = "error"
+			}
+		}
+		ModelsAttemptDebug("Requested %s %s : %d -> %s", attempt.Method, attempt.URL, statusCode, status)
+	}
+
+	if err := b.FillQueue(attempt.QueueID, attempt.ID); err != nil {
+		return nil, err
 	}
 	if status == "success" {
 		statsAttemptsSuccess.Add(1)
@@ -233,7 +267,7 @@ func (b *Base) DoAttempt(attempt *Attempt) (*Attempt, error) {
 		},
 		ReturnNew: true,
 	}
-	_, err = b.db.C("attempts").FindId(attempt.ID).Apply(change, attempt)
+	_, err := b.db.C("attempts").FindId(attempt.ID).Apply(change, attempt)
 	if err != nil {
 		return nil, err
 	}

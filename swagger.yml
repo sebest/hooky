@@ -510,11 +510,19 @@ definitions:
         description: Name.
       retry:
         $ref: '#/definitions/Retry'
+      in_flight:
+        type: integer
+        description: Current number of attempts executed in parallel.
+      max_in_flight:
+        type: integer
+        description: Maximum number of attempts executed in parallel.
   NewQueue:
     properties:
       retry:
         $ref: '#/definitions/Retry'
-
+      max_in_flight:
+        type: integer
+        description: Maximum number of attempts executed in parallel.
   Applications:
     properties:
       list:
