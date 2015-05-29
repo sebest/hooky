@@ -70,6 +70,16 @@ func authorize(adminPassword string) func(account string, r *rest.Request) bool 
 	}
 }
 
+func Authenticate(w rest.ResponseWriter, r *rest.Request) {
+	account := ""
+	if ru, ok := r.Env["REMOTE_USER"]; ok == true {
+		account = ru.(string)
+	}
+	w.WriteJson(map[string]string{
+		"account": account,
+	})
+}
+
 // New creates a new instance of the Rest API.
 func New(s *store.Store, adminPassword string) (*rest.Api, error) {
 	db := s.DB()
@@ -88,7 +98,7 @@ func New(s *store.Store, adminPassword string) (*rest.Api, error) {
 	}
 	api.Use(&rest.IfMiddleware{
 		Condition: func(r *rest.Request) bool {
-			return strings.HasPrefix(r.URL.Path, "/accounts")
+			return r.URL.Path != "/status"
 		},
 		IfTrue: authBasic,
 	})
@@ -107,6 +117,7 @@ func New(s *store.Store, adminPassword string) (*rest.Api, error) {
 		AccessControlMaxAge:           3600,
 	})
 	router, err := rest.MakeRouter(
+		rest.Get("/authenticate", Authenticate),
 		rest.Post("/accounts", PostAccount),
 		rest.Get("/accounts", GetAccounts),
 		rest.Get("/accounts/:account", GetAccount),
