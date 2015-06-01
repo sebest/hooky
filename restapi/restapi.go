@@ -91,6 +91,19 @@ func New(s *store.Store, adminPassword string) (*rest.Api, error) {
 	api.Use(&BaseMiddleware{
 		Store: s,
 	})
+	api.Use(&rest.JsonpMiddleware{
+		CallbackNameKey: "cb",
+	})
+	api.Use(&rest.CorsMiddleware{
+		RejectNonCorsRequests: false,
+		OriginValidator: func(origin string, request *rest.Request) bool {
+			return true
+		},
+		AllowedMethods:                []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:                []string{"Accept", "Content-Type", "Origin", "Authorization"},
+		AccessControlAllowCredentials: true,
+		AccessControlMaxAge:           3600,
+	})
 	authBasic := &AuthBasicMiddleware{
 		Realm:         "Hooky",
 		Authenticator: authenticate(adminPassword),
@@ -101,20 +114,6 @@ func New(s *store.Store, adminPassword string) (*rest.Api, error) {
 			return r.URL.Path != "/status"
 		},
 		IfTrue: authBasic,
-	})
-	api.Use(&rest.JsonpMiddleware{
-		CallbackNameKey: "cb",
-	})
-	api.Use(&rest.CorsMiddleware{
-		RejectNonCorsRequests: false,
-		OriginValidator: func(origin string, request *rest.Request) bool {
-			return true
-		},
-		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},
-		AllowedHeaders: []string{
-			"Accept", "Content-Type", "Origin"},
-		AccessControlAllowCredentials: true,
-		AccessControlMaxAge:           3600,
 	})
 	router, err := rest.MakeRouter(
 		rest.Get("/authenticate", Authenticate),
