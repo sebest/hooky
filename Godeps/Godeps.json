@@ -7,8 +7,8 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/ant0ine/go-json-rest/rest",
-			"Comment": "v3.1.0-4-g244c490",
-			"Rev": "244c490a2e45684d70f32e846d35db3321706411"
+			"Comment": "v3.2.0-5-g6eac5ab",
+			"Rev": "6eac5ab9fc475f517022602fd417c921403c0a28"
 		},
 		{
 			"ImportPath": "github.com/codegangsta/cli",
