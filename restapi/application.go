@@ -58,7 +58,7 @@ func PutApplication(w rest.ResponseWriter, r *rest.Request) {
 
 	rc := &Application{}
 	if err := r.DecodeJsonPayload(rc); err != nil {
-		if err != rest.ErrJSONPayloadEmpty {
+		if err != rest.ErrJsonPayloadEmpty {
 			rest.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
