@@ -20,6 +20,9 @@ type Account struct {
 	// ID is the ID of the Account.
 	ID string `json:"id"`
 
+	// Name is display name for the Account.
+	Name *string `json:"name"`
+
 	// Created is the date when the Account was created.
 	Created string `json:"created"`
 
@@ -43,6 +46,7 @@ func accountParams(r *rest.Request) (bson.ObjectId, error) {
 func NewAccountFromModel(account *models.Account) *Account {
 	return &Account{
 		ID:      account.ID.Hex(),
+		Name:    account.Name,
 		Created: account.ID.Time().UTC().Format(time.RFC3339),
 		Key:     account.Key,
 	}
@@ -50,8 +54,15 @@ func NewAccountFromModel(account *models.Account) *Account {
 
 // PostAccount handles POST requests on /accounts
 func PostAccount(w rest.ResponseWriter, r *rest.Request) {
+	rc := &Account{}
+	if err := r.DecodeJsonPayload(rc); err != nil {
+		if err != rest.ErrJsonPayloadEmpty {
+			rest.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
 	b := GetBase(r)
-	account, err := b.NewAccount()
+	account, err := b.NewAccount(rc.Name)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -62,6 +73,29 @@ func PostAccount(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 	_, err = b.NewQueue(account.ID, "default", "default", nil, 0)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteJson(NewAccountFromModel(account))
+}
+
+// PatchAccount handles PATCH requests on /accounts
+func PatchAccount(w rest.ResponseWriter, r *rest.Request) {
+	accountID, err := accountParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	rc := &Account{}
+	if err := r.DecodeJsonPayload(rc); err != nil {
+		if err != rest.ErrJsonPayloadEmpty {
+			rest.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	b := GetBase(r)
+	account, err := b.UpdateAccount(accountID, rc.Name)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return

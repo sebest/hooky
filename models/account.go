@@ -12,6 +12,9 @@ type Account struct {
 	// ID is the ID of the Account.
 	ID bson.ObjectId `bson:"_id"`
 
+	// Name is display name for the Account.
+	Name *string `bson:"name,omitempty"`
+
 	// Key is the secret key to authenticate the Account ID.
 	Key string `bson:"key"`
 
@@ -20,12 +23,33 @@ type Account struct {
 }
 
 // NewAccount creates a new Account.
-func (b *Base) NewAccount() (account *Account, err error) {
+func (b *Base) NewAccount(name *string) (account *Account, err error) {
 	account = &Account{
-		ID:  bson.NewObjectId(),
-		Key: randKey(32),
+		ID:   bson.NewObjectId(),
+		Name: name,
+		Key:  randKey(32),
 	}
 	err = b.db.C("accounts").Insert(account)
+	return
+}
+
+// UpdateAccount updates an Account.
+func (b *Base) UpdateAccount(accountID bson.ObjectId, name *string) (account *Account, err error) {
+	if name == nil {
+		return b.GetAccount(accountID)
+	}
+	change := mgo.Change{
+		Update: bson.M{
+			"$set": bson.M{
+				"name": name,
+			},
+		},
+		ReturnNew: true,
+	}
+	query := bson.M{
+		"_id": accountID,
+	}
+	_, err = b.db.C("accounts").Find(query).Apply(change, account)
 	return
 }
 

@@ -120,6 +120,7 @@ func New(s *store.Store, adminPassword string) (*rest.Api, error) {
 		rest.Post("/accounts", PostAccount),
 		rest.Get("/accounts", GetAccounts),
 		rest.Get("/accounts/:account", GetAccount),
+		rest.Patch("/accounts/:account", PatchAccount),
 		rest.Delete("/accounts/:account", DeleteAccount),
 		rest.Delete("/accounts/:account/applications", DeleteApplications),
 		rest.Get("/accounts/:account/applications", GetApplications),
