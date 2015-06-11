@@ -1,11 +1,13 @@
 package models
 
 import (
+	"math"
 	"reflect"
 
 	"gopkg.in/mgo.v2/bson"
 )
 
+// ListResult is the structure used for listing collections.
 type ListResult struct {
 	List    interface{} `json:"list"`
 	HasMore bool        `json:"hasMore"`
@@ -16,15 +18,16 @@ type ListResult struct {
 }
 
 func (b *Base) getItems(collection string, query bson.M, lp ListParams, lr *ListResult) (err error) {
-	limit := lp.Limit
 	skip := lp.Limit * (lp.Page - 1)
-	lr.Page = (skip / limit) + 1
 	if lr.Total, err = b.db.C(collection).Find(query).Count(); err != nil {
 		return
 	}
-	lr.Pages = (lr.Total / limit)
+	lr.Pages = int(math.Ceil(float64(lr.Total) / float64(lp.Limit)))
+	if lr.Page > lr.Pages {
+		lr.Page = lr.Pages
+	}
 	if skip < lr.Total {
-		if err = b.db.C(collection).Find(query).Skip(skip).Limit(limit).All(lr.List); err != nil {
+		if err = b.db.C(collection).Find(query).Skip(skip).Limit(lp.Limit).All(lr.List); err != nil {
 			return
 		}
 		lr.Count = reflect.ValueOf(lr.List).Elem().Len()

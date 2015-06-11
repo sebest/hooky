@@ -30,6 +30,7 @@ func (b *Base) EnsureIndex() {
 	b.EnsureQueueIndex()
 	b.EnsureTaskIndex()
 	b.EnsureAttemptIndex()
+	b.Migrate()
 }
 
 // Migrate migrates database schema.
