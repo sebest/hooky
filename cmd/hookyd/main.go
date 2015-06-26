@@ -66,8 +66,8 @@ func main() {
 		},
 		cli.IntFlag{
 			Name:   "clean-finished-attempts",
-			Value:  24 * 3600,
-			Usage:  "delete finished attempts that are older than this age in seconds",
+			Value:  7 * 24,
+			Usage:  "delete finished attempts that are older than this age in hours",
 			EnvVar: "HOOKY_CLEAN_FINISHED_ATTEMPTS",
 		},
 	}
@@ -76,7 +76,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		sched := scheduler.New(s, c.Int("max-mongo-query"), c.Int("max-http-request"), c.Int("touch-interval"), c.Int("clean-finished-attempts"))
+		sched := scheduler.New(s, c.Int("max-mongo-query"), c.Int("max-http-request"), c.Int("touch-interval"), c.Int("clean-finished-attempts")*3600)
 		sched.Start()
 		ra, err := restapi.New(s, c.String("admin-password"))
 		if err != nil {
