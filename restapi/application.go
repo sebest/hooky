@@ -69,6 +69,11 @@ func PutApplication(w rest.ResponseWriter, r *rest.Request) {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	_, err = b.NewQueue(accountID, applicationName, "default", nil, 0)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.WriteJson(NewApplicationFromModel(application))
 }
 
