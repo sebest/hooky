@@ -27,6 +27,7 @@ $ hookyd
 - [x] Multi-accounts and multi-applications
 - [X] Concurrency limit per Queue
 - [X] Stats per Task
+- [X] Clean finished attempts
 - [ ] Stats per Queue
 - [ ] Stats per Application
 - [ ] Crontabs

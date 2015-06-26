@@ -64,13 +64,19 @@ func main() {
 			Usage:  "frequency to update the tasks reservation duration in seconds",
 			EnvVar: "HOOKY_TOUCH_INTERVAL",
 		},
+		cli.IntFlag{
+			Name:   "clean-finished-attempts",
+			Value:  24 * 3600,
+			Usage:  "delete finished attempts that are older than this age in seconds",
+			EnvVar: "HOOKY_CLEAN_FINISHED_ATTEMPTS",
+		},
 	}
 	app.Action = func(c *cli.Context) {
 		s, err := store.New(c.String("mongo-uri"))
 		if err != nil {
 			log.Fatal(err)
 		}
-		sched := scheduler.New(s, c.Int("max-mongo-query"), c.Int("max-http-request"), c.Int("touch-interval"))
+		sched := scheduler.New(s, c.Int("max-mongo-query"), c.Int("max-http-request"), c.Int("touch-interval"), c.Int("clean-finished-attempts"))
 		sched.Start()
 		ra, err := restapi.New(s, c.String("admin-password"))
 		if err != nil {

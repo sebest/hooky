@@ -11,22 +11,24 @@ import (
 
 // Scheduler schedules the Attempts of the Tasks.
 type Scheduler struct {
-	store         *store.Store
-	wg            sync.WaitGroup
-	quit          chan bool
-	querierSem    chan bool
-	workerSem     chan bool
-	touchInterval int64
+	store                 *store.Store
+	wg                    sync.WaitGroup
+	quit                  chan bool
+	querierSem            chan bool
+	workerSem             chan bool
+	touchInterval         int64
+	cleanFinishedAttempts int64
 }
 
 // New creates a new Scheduler.
-func New(store *store.Store, maxQuerier int, maxWorker int, touchInterval int) *Scheduler {
+func New(store *store.Store, maxQuerier int, maxWorker int, touchInterval int, cleanFinishedAttempts int) *Scheduler {
 	return &Scheduler{
-		store:         store,
-		quit:          make(chan bool),
-		querierSem:    make(chan bool, maxQuerier),
-		workerSem:     make(chan bool, maxWorker),
-		touchInterval: int64(touchInterval),
+		store:                 store,
+		quit:                  make(chan bool),
+		querierSem:            make(chan bool, maxQuerier),
+		workerSem:             make(chan bool, maxWorker),
+		touchInterval:         int64(touchInterval),
+		cleanFinishedAttempts: int64(cleanFinishedAttempts),
 	}
 }
 
@@ -38,6 +40,29 @@ func (s *Scheduler) Stop() {
 
 // Start starts the Scheduler.
 func (s *Scheduler) Start() {
+	// Cleaner
+	go func() {
+		clean := func() {
+			db := s.store.DB()
+			b := models.NewBase(db)
+			_, err := b.CleanFinishedAttempts(s.cleanFinishedAttempts)
+			if err != nil {
+				fmt.Println(err)
+			}
+			db.Session.Close()
+		}
+		clean()
+		for {
+			select {
+			case <-s.quit:
+				return
+			case <-time.After(time.Second * 60):
+				clean()
+			}
+		}
+	}()
+
+	// Attempts scheduler
 	go func() {
 		for {
 			select {

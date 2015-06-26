@@ -16,7 +16,8 @@ import (
 var (
 	statsAttemptsSuccess = expvar.NewInt("attemptsSuccess")
 	statsAttemptsError   = expvar.NewInt("attemptsError")
-	ModelsAttemptDebug   = debug.Debug("hooky.models.attempt")
+	// ModelsAttemptDebug ...
+	ModelsAttemptDebug = debug.Debug("hooky.models.attempt")
 )
 
 // AttemptStatuses
@@ -282,6 +283,19 @@ func (b *Base) TouchAttempt(attemptID bson.ObjectId, seconds int64) error {
 		},
 	}
 	return b.db.C("attempts").UpdateId(attemptID, update)
+}
+
+// CleanFinishedAttempts cleans attempts that are finished since more than X seconds.
+func (b *Base) CleanFinishedAttempts(seconds int64) (deleted int, err error) {
+	query := bson.M{
+		"finished": bson.M{"$lte": time.Now().Unix() - seconds},
+	}
+	c, err := b.db.C("attempts").RemoveAll(query)
+	if err != nil {
+		deleted = c.Removed
+		ModelsAttemptDebug("Cleaned %d finished attempts", deleted)
+	}
+	return
 }
 
 // EnsureAttemptIndex creates mongo indexes for Application.
