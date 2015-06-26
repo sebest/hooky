@@ -45,8 +45,10 @@ func (s *Scheduler) Start() {
 		clean := func() {
 			db := s.store.DB()
 			b := models.NewBase(db)
-			_, err := b.CleanFinishedAttempts(s.cleanFinishedAttempts)
-			if err != nil {
+			if _, err := b.CleanFinishedAttempts(s.cleanFinishedAttempts); err != nil {
+				fmt.Println(err)
+			}
+			if err := b.CleanDeletedRessources(); err != nil {
 				fmt.Println(err)
 			}
 			db.Session.Close()

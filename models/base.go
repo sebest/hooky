@@ -3,8 +3,14 @@ package models
 import (
 	"fmt"
 
+	"github.com/tj/go-debug"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+)
+
+var (
+	// ModelsBaseDebug ...
+	ModelsBaseDebug = debug.Debug("hooky.models.base")
 )
 
 type ListParams struct {
@@ -61,4 +67,42 @@ func (b *Base) Migrate() {
 		}
 	}
 	fmt.Println("Migrate schema: done")
+}
+
+// CleanDeletedRessources cleans ressources that have been deleted.
+func (b *Base) CleanDeletedRessources() error {
+	query := bson.M{
+		"deleted": true,
+	}
+	if c, err := b.db.C("attempts").RemoveAll(query); err == nil {
+		deleted := c.Removed
+		ModelsBaseDebug("Cleaned %d deleted attempts", deleted)
+	} else {
+		return fmt.Errorf("failed to clean deleted attempts: %s", err)
+	}
+	if c, err := b.db.C("tasks").RemoveAll(query); err == nil {
+		deleted := c.Removed
+		ModelsBaseDebug("Cleaned %d deleted tasks", deleted)
+	} else {
+		return fmt.Errorf("failed to clean deleted tasks: %s", err)
+	}
+	if c, err := b.db.C("queues").RemoveAll(query); err == nil {
+		deleted := c.Removed
+		ModelsBaseDebug("Cleaned %d deleted queues", deleted)
+	} else {
+		return fmt.Errorf("failed to clean deleted queues: %s", err)
+	}
+	if c, err := b.db.C("applications").RemoveAll(query); err == nil {
+		deleted := c.Removed
+		ModelsBaseDebug("Cleaned %d deleted applications", deleted)
+	} else {
+		return fmt.Errorf("failed to clean deleted applications: %s", err)
+	}
+	if c, err := b.db.C("accounts").RemoveAll(query); err == nil {
+		deleted := c.Removed
+		ModelsBaseDebug("Cleaned %d deleted accounts", deleted)
+	} else {
+		return fmt.Errorf("failed to clean deleted accounts: %s", err)
+	}
+	return nil
 }

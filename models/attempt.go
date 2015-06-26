@@ -292,6 +292,8 @@ func (b *Base) CleanFinishedAttempts(seconds int64) (deleted int, err error) {
 	}
 	c, err := b.db.C("attempts").RemoveAll(query)
 	if err != nil {
+		err = fmt.Errorf("failed cleaning finished attempts: %s", err)
+	} else {
 		deleted = c.Removed
 		ModelsAttemptDebug("Cleaned %d finished attempts", deleted)
 	}
