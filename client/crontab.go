@@ -130,6 +130,45 @@ func SyncCrontab(baseURL string, crontab *Crontab) error {
 
 	currentTasks := make(map[string]bool, 0)
 
+	// Check that the application exists
+	url := fmt.Sprintf("%s/accounts/%s/applications/%s", baseURL, crontab.Account.ID, app)
+	req, err := newReq("GET", url, crontab.Account.ID, crontab.Account.Key, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != 200 {
+		if resp.StatusCode == 404 {
+			url := fmt.Sprintf("%s/accounts/%s/applications/%s", baseURL, crontab.Account.ID, app)
+			req, err := newReq("PUT", url, crontab.Account.ID, crontab.Account.Key, nil)
+			if err != nil {
+				return err
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			respBody, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+			if resp.StatusCode != 200 {
+				fmt.Println(string(respBody))
+			}
+		} else {
+			fmt.Println(string(respBody))
+		}
+	}
+
 	// Set all the tasks from the crontab
 	for _, task := range crontab.Tasks {
 		currentTasks[task.Name] = true
@@ -158,9 +197,9 @@ func SyncCrontab(baseURL string, crontab *Crontab) error {
 	}
 
 	// Find tasks that have a schedule
-	url := fmt.Sprintf("%s/accounts/%s/applications/%s/tasks?filters=schedule:true", baseURL, crontab.Account.ID, app)
-	req, err := newReq("GET", url, crontab.Account.ID, crontab.Account.Key, nil)
-	resp, err := client.Do(req)
+	url = fmt.Sprintf("%s/accounts/%s/applications/%s/tasks?filters=schedule:true", baseURL, crontab.Account.ID, app)
+	req, err = newReq("GET", url, crontab.Account.ID, crontab.Account.Key, nil)
+	resp, err = client.Do(req)
 	if err != nil {
 		return err
 	}
