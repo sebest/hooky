@@ -89,6 +89,9 @@ type Attempt struct {
 
 // NewAttempt creates a new Attempt.
 func (b *Base) NewAttempt(task *Task) (*Attempt, error) {
+	if !task.Active || task.At == 0 || task.Deleted {
+		return nil, nil
+	}
 	attempt := &Attempt{
 		ID:          bson.NewObjectId(),
 		TaskID:      task.ID,
