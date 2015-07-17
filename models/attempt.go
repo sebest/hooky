@@ -74,7 +74,7 @@ type Attempt struct {
 	// Finished is a Unix timestamp representing the time the attempt finished.
 	Finished int64 `bson:"finished,omitempty"`
 
-	// Status is either `pending`, `success` or `error`
+	// Status is either `pending`, `running`, `success` or `error`
 	Status string `bson:"status"`
 
 	// StatusCode is the HTTP status code.
@@ -88,7 +88,12 @@ type Attempt struct {
 }
 
 // NewAttempt creates a new Attempt.
-func (b *Base) NewAttempt(task *Task) (*Attempt, error) {
+func (b *Base) NewAttempt(task *Task, deletePending bool) (*Attempt, error) {
+	if deletePending {
+		if _, err := b.DeletePendingAttempts(task.ID); err != nil {
+			return nil, err
+		}
+	}
 	if !task.Active || task.At == 0 || task.Deleted {
 		return nil, nil
 	}
@@ -129,6 +134,7 @@ func (b *Base) DeletePendingAttempts(taskID bson.ObjectId) (bool, error) {
 	query := bson.M{
 		"task_id": taskID,
 		"status":  "pending",
+		"deleted": false,
 	}
 	update := bson.M{
 		"$set": bson.M{
@@ -156,6 +162,17 @@ func (b *Base) GetAttempts(account bson.ObjectId, application string, task strin
 	return b.getItems("attempts", query, lp, lr)
 }
 
+// ForceTaskAttempt ...
+func (b *Base) ForceTaskAttempt(account bson.ObjectId, application string, name string) (attempt *Attempt, err error) {
+	var task *Task
+	task, err = b.GetTask(account, application, name)
+	if err == nil {
+		task.At = time.Now().UnixNano()
+		attempt, err = b.NewAttempt(task, true)
+	}
+	return
+}
+
 // NextAttempt reserves and returns the next Attempt.
 func (b *Base) NextAttempt(ttr int64) (*Attempt, error) {
 	var fullQueues []bson.ObjectId
@@ -164,12 +181,13 @@ func (b *Base) NextAttempt(ttr int64) (*Attempt, error) {
 		Update: bson.M{
 			"$set": bson.M{
 				"reserved": now + (ttr * 1000000000),
+				"status":   "running",
 			},
 		},
 		ReturnNew: true,
 	}
 	query := bson.M{
-		"status":   "pending",
+		"status":   bson.M{"$in": []string{"pending", "running"}},
 		"reserved": bson.M{"$lt": now},
 		"deleted":  false,
 	}
@@ -204,10 +222,12 @@ func (b *Base) DoAttempt(attempt *Attempt) (*Attempt, error) {
 	var statusMessage string
 	var statusCode int
 	if strings.HasPrefix(attempt.URL, "test://") {
+		ModelsAttemptDebug("Test attempt %s starting", attempt.URL)
 		time.Sleep(10 * time.Second)
 		status = "success"
 		statusCode = 200
 		statusMessage = "Test attempt"
+		ModelsAttemptDebug("Test attempt %s done", attempt.URL)
 	} else {
 		var data io.Reader
 		contentType := "text/plain"

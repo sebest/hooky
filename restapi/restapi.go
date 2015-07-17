@@ -138,6 +138,7 @@ func New(s *store.Store, adminPassword string) (*rest.Api, error) {
 		rest.Put("/accounts/:account/applications/:application/tasks/:task", PutTask),
 		rest.Get("/accounts/:account/applications/:application/tasks/:task", GetTask),
 		rest.Delete("/accounts/:account/applications/:application/tasks/:task", DeleteTask),
+		rest.Post("/accounts/:account/applications/:application/tasks/:task/attempts", PostAttempt),
 		rest.Get("/accounts/:account/applications/:application/tasks/:task/attempts", GetAttempts),
 		rest.Get("/status", GetStatus),
 	)

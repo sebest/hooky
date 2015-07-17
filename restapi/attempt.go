@@ -122,3 +122,20 @@ func GetAttempts(w rest.ResponseWriter, r *rest.Request) {
 		Pages:   lr.Pages,
 	})
 }
+
+// PostAttempt ...
+func PostAttempt(w rest.ResponseWriter, r *rest.Request) {
+	accountID, applicationName, taskName, err := taskParams(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b := GetBase(r)
+	attempt, err := b.ForceTaskAttempt(accountID, applicationName, taskName)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteJson(NewAttemptFromModel(attempt))
+}

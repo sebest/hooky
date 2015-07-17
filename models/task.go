@@ -178,7 +178,7 @@ func (b *Base) NewTask(account bson.ObjectId, applicationName string, name strin
 	}
 	err = b.db.C("tasks").Insert(task)
 	if err == nil {
-		_, err = b.NewAttempt(task)
+		_, err = b.NewAttempt(task, false)
 	} else if mgo.IsDup(err) {
 		change := mgo.Change{
 			Update: bson.M{
@@ -204,10 +204,7 @@ func (b *Base) NewTask(account bson.ObjectId, applicationName string, name strin
 		}
 		_, err = b.db.C("tasks").Find(query).Apply(change, task)
 		if err == nil {
-			_, err = b.DeletePendingAttempts(task.ID)
-			if err == nil {
-				_, err = b.NewAttempt(task)
-			}
+			_, err = b.NewAttempt(task, true)
 		}
 	}
 	return
@@ -349,7 +346,7 @@ func (b *Base) NextAttemptForTask(taskID bson.ObjectId, status string) (attempt 
 		ReturnNew: true,
 	}
 	_, err = b.db.C("tasks").FindId(taskID).Apply(change, task)
-	attempt, err = b.NewAttempt(task)
+	attempt, err = b.NewAttempt(task, true)
 	return
 }
 
