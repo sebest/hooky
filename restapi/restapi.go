@@ -63,6 +63,9 @@ func authorize(adminPassword string) func(account string, r *rest.Request) bool 
 			return true
 		}
 		url := r.URL.String()
+		if account != "" && url == "/authenticate" {
+			return true
+		}
 		if strings.HasPrefix(url, "/accounts/"+account) == true {
 			return true
 		}
