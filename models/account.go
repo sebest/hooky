@@ -49,6 +49,7 @@ func (b *Base) UpdateAccount(accountID bson.ObjectId, name *string) (account *Ac
 	query := bson.M{
 		"_id": accountID,
 	}
+	account = &Account{}
 	_, err = b.db.C("accounts").Find(query).Apply(change, account)
 	return
 }
