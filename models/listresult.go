@@ -22,6 +22,7 @@ func (b *Base) getItems(collection string, query bson.M, lp ListParams, lr *List
 	if lr.Total, err = b.db.C(collection).Find(query).Count(); err != nil {
 		return
 	}
+	lr.Page = lp.Page
 	lr.Pages = int(math.Ceil(float64(lr.Total) / float64(lp.Limit)))
 	if lr.Page > lr.Pages {
 		lr.Page = lr.Pages
