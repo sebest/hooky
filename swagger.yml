@@ -369,6 +369,7 @@ paths:
             $ref: '#/definitions/Attempts'
 
     post:
+      security:
         - admin: []
         - owner: []
       description: Immediately trigger an `Attempt` for the scheduled `Task`
