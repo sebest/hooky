@@ -102,7 +102,7 @@ func New(s *store.Store, adminPassword string) (*rest.Api, error) {
 		OriginValidator: func(origin string, request *rest.Request) bool {
 			return true
 		},
-		AllowedMethods:                []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedMethods:                []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowedHeaders:                []string{"Accept", "Content-Type", "Origin", "Authorization"},
 		AccessControlAllowCredentials: true,
 		AccessControlMaxAge:           3600,
