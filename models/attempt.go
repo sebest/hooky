@@ -88,13 +88,13 @@ type Attempt struct {
 }
 
 // NewAttempt creates a new Attempt.
-func (b *Base) NewAttempt(task *Task, deletePending bool) (*Attempt, error) {
+func (b *Base) NewAttempt(task *Task, deletePending bool, force bool) (*Attempt, error) {
 	if deletePending {
 		if _, err := b.DeletePendingAttempts(task.ID); err != nil {
 			return nil, err
 		}
 	}
-	if !task.Active || task.At == 0 || task.Deleted {
+	if !force && (!task.Active || task.At == 0 || task.Deleted) {
 		return nil, nil
 	}
 	attempt := &Attempt{
@@ -168,7 +168,7 @@ func (b *Base) ForceTaskAttempt(account bson.ObjectId, application string, name 
 	task, err = b.GetTask(account, application, name)
 	if err == nil {
 		task.At = time.Now().UnixNano()
-		attempt, err = b.NewAttempt(task, true)
+		attempt, err = b.NewAttempt(task, true, true)
 	}
 	return
 }
@@ -208,7 +208,7 @@ func (b *Base) NextAttempt(ttr int64) (*Attempt, error) {
 			return nil, err
 		}
 		if !full {
-			ModelsAttemptDebug("Found an attempt in queue %s", attempt.QueueID)
+			ModelsAttemptDebug("Found an attempt in queue %s", attempt.QueueID.Hex())
 			return attempt, nil
 		}
 		ModelsAttemptDebug("Queue %s full", attempt.QueueID)
@@ -229,6 +229,7 @@ func (b *Base) DoAttempt(attempt *Attempt) (*Attempt, error) {
 		statusMessage = "Test attempt"
 		ModelsAttemptDebug("Test attempt %s done", attempt.URL)
 	} else {
+		ModelsAttemptDebug("Starting attempt [%s] for task %s", attempt.ID.Hex(), attempt.Task)
 		var data io.Reader
 		contentType := "text/plain"
 		if attempt.Method == "POST" && attempt.Payload != "" {
@@ -269,7 +270,7 @@ func (b *Base) DoAttempt(attempt *Attempt) (*Attempt, error) {
 				status = "error"
 			}
 		}
-		ModelsAttemptDebug("Requested %s %s : %d -> %s", attempt.Method, attempt.URL, statusCode, status)
+		ModelsAttemptDebug("Attempt [%s] %s %s : %d -> %s", attempt.ID.Hex(), attempt.Method, attempt.URL, statusCode, status)
 	}
 
 	if err := b.FillQueue(attempt.QueueID, attempt.ID); err != nil {
