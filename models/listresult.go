@@ -28,7 +28,7 @@ func (b *Base) getItems(collection string, query bson.M, lp ListParams, lr *List
 		lr.Page = lr.Pages
 	}
 	if skip < lr.Total {
-		if err = b.db.C(collection).Find(query).Skip(skip).Limit(lp.Limit).All(lr.List); err != nil {
+		if err = b.db.C(collection).Find(query).Sort("-_id").Skip(skip).Limit(lp.Limit).All(lr.List); err != nil {
 			return
 		}
 		lr.Count = reflect.ValueOf(lr.List).Elem().Len()
