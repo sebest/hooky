@@ -345,3 +345,14 @@ func (b *Base) EnsureAttemptIndex() {
 		fmt.Printf("Error creating index on attempts: %s\n", err)
 	}
 }
+
+// GetAttemptByID returns a Attempt given its ID.
+func (b *Base) GetAttemptByID(attemptID bson.ObjectId) (attempt *Attempt, err error) {
+	attempt = &Attempt{}
+	err = b.db.C("attempts").FindId(attemptID).One(attempt)
+	if err == mgo.ErrNotFound {
+		err = nil
+		attempt = nil
+	}
+	return
+}

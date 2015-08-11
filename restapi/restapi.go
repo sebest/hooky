@@ -143,6 +143,7 @@ func New(s *store.Store, adminPassword string) (*rest.Api, error) {
 		rest.Delete("/accounts/:account/applications/:application/tasks/:task", DeleteTask),
 		rest.Post("/accounts/:account/applications/:application/tasks/:task/attempts", PostAttempt),
 		rest.Get("/accounts/:account/applications/:application/tasks/:task/attempts", GetAttempts),
+		rest.Get("/accounts/:account/applications/:application/tasks/:task/attempts/:attempt", GetAttempt),
 		rest.Get("/status", GetStatus),
 	)
 	if err != nil {

@@ -1,11 +1,18 @@
 package restapi
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/sebest/hooky/models"
+	"gopkg.in/mgo.v2/bson"
+)
+
+var (
+	// ErrInvalidAttemptID is returned when an invalid Attempt ID is found.
+	ErrInvalidAttemptID = errors.New("invalid attempt ID")
 )
 
 // Attempt is used for the Rest API.
@@ -133,6 +140,27 @@ func PostAttempt(w rest.ResponseWriter, r *rest.Request) {
 
 	b := GetBase(r)
 	attempt, err := b.ForceTaskAttempt(accountID, applicationName, taskName)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if attempt == nil {
+		rest.NotFound(w, r)
+		return
+	}
+	w.WriteJson(NewAttemptFromModel(attempt))
+}
+
+// GetAttempt ...
+func GetAttempt(w rest.ResponseWriter, r *rest.Request) {
+	attemptID := r.PathParam("attempt")
+	if !bson.IsObjectIdHex(attemptID) {
+		rest.Error(w, ErrInvalidAttemptID.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b := GetBase(r)
+	attempt, err := b.GetAttemptByID(bson.ObjectIdHex(attemptID))
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
