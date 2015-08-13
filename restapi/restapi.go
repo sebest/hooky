@@ -84,13 +84,18 @@ func Authenticate(w rest.ResponseWriter, r *rest.Request) {
 }
 
 // New creates a new instance of the Rest API.
-func New(s *store.Store, adminPassword string) (*rest.Api, error) {
+func New(s *store.Store, adminPassword string, logStyle string) (*rest.Api, error) {
 	db := s.DB()
 	models.NewBase(db).EnsureIndex()
 	db.Session.Close()
 
 	api := rest.NewApi()
-	api.Use(rest.DefaultDevStack...)
+	if logStyle == "json" {
+		api.Use(&rest.AccessLogJsonMiddleware{})
+	} else if logStyle == "apache" {
+		api.Use(&rest.AccessLogApacheMiddleware{})
+	}
+	api.Use(rest.DefaultCommonStack...)
 	api.Use(&BaseMiddleware{
 		Store: s,
 	})

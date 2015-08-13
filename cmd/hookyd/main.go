@@ -46,6 +46,12 @@ func main() {
 			Usage:  "admin password",
 			EnvVar: "HOOKY_ADMIN_PASSWORD",
 		},
+		cli.StringFlag{
+			Name:   "accesslog-format",
+			Value:  "none",
+			Usage:  "format of the access log: json, apache or none",
+			EnvVar: "HOOKY_ACCESSLOG_FORMAT",
+		},
 		cli.IntFlag{
 			Name:   "max-mongo-query",
 			Value:  1,
@@ -78,7 +84,7 @@ func main() {
 		}
 		sched := scheduler.New(s, c.Int("max-mongo-query"), c.Int("max-http-request"), c.Int("touch-interval"), c.Int("clean-finished-attempts")*3600)
 		sched.Start()
-		ra, err := restapi.New(s, c.String("admin-password"))
+		ra, err := restapi.New(s, c.String("admin-password"), c.String("accesslog-format"))
 		if err != nil {
 			log.Fatal(err)
 		}
