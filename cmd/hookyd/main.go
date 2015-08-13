@@ -49,7 +49,7 @@ func main() {
 		cli.StringFlag{
 			Name:   "accesslog-format",
 			Value:  "none",
-			Usage:  "format of the access log: json, apache or none",
+			Usage:  "format of the access log: json, apache-fancy, apache-combined, apache-common or none",
 			EnvVar: "HOOKY_ACCESSLOG_FORMAT",
 		},
 		cli.IntFlag{

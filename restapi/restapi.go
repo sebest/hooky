@@ -92,8 +92,15 @@ func New(s *store.Store, adminPassword string, logStyle string) (*rest.Api, erro
 	api := rest.NewApi()
 	if logStyle == "json" {
 		api.Use(&rest.AccessLogJsonMiddleware{})
-	} else if logStyle == "apache" {
-		api.Use(&rest.AccessLogApacheMiddleware{})
+	} else if strings.HasPrefix(logStyle, "apache-") {
+		mw := &rest.AccessLogApacheMiddleware{}
+		mw.Format = rest.DefaultLogFormat
+		if logStyle == "apache-common" {
+			mw.Format = rest.CommonLogFormat
+		} else if logStyle == "apache-combined" {
+			mw.Format = rest.CombinedLogFormat
+		}
+		api.Use(mw)
 	}
 	api.Use(rest.DefaultCommonStack...)
 	api.Use(&BaseMiddleware{
