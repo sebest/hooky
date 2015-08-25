@@ -1,0 +1,33 @@
+sudo: required
+
+services:
+  - docker
+
+language: go
+
+go: 1.4
+
+env:
+  global:
+    - COMMIT=${TRAVIS_COMMIT::8}
+    - secure: "YfR7vFVwdf1h1pOXkmSbpIwKw1RJa9v6LVgETS9BRN+WBLjOHW+qde5bidXT8HmYz7uJu3m1UVg1qnynjSLikoDZ0E4HQjt8eHB88c6LefTAHdmvl8PG1QmLnDJvBhpudR+xw3ZT+Dct2HyOia09hAnvoSSZmOhDXymkF42aulIekaEz9kkLSzaEAawR05ip11YBwBNav16Ok5dujwPowwvvTIe0lJMUPa4wXm5MuTON52bCc/kxfY8Jgqht2LH+AUij6FbxP/kiF/nyTLrqNf2VzgwpeXzU+mQkO06H9pQjU8w4LDRl4mRA6qK/eKEqwX8nWXqYTuzX9uCrycCJHiGkkuAGAoipo3NCJLD/aKh9peU8U9Tot1RNgzO26BN1Qckxefxgwy7K4FurqIfC0OMdNWTHIH6XLX8U3KtCmUvVpk43bkaqTm19du49BS70ejRMVkF0OEozSqkZcy2CKIh5JqBMSpi3yuu26k8mq0tyGf4GpHXM6CbVqQo6q4u797lIaYiI0Wjodc8bmG/DOP6PrYRLlquC13lR/zNgAnk0w+hVVzsZr/BDgnMF/7cn+v9pGjnjxAbGdXCQe0K2hwUICIJ5gnnQYWi6Yv8nx0uXskO5ivOJbMys1hxgUmt7iBh+P4Ja/JHyhPZGgZ9wc8E5JHRUI90vzfoCyCMQc2k="
+    - secure: "0SIwJang/0IEPoCJqXaSDQD2fJEkij1dXNMD9jaGsRlQKQcX7xHnpsPgme3tNEPvPsQVVbvn2Emfdq0YNuNTBStV/hsWvlRMu7rRltKQzajR8tqcbdI7h6SBcHz4MYVOEfdbjsixfka1DibbVsXBrwy63/WgV0QXuEDV5fdGeojEru0lfRNqnrktABW1dg2B6HWIOr92lTKxUXd2BNqe/R0f5+69I2jqPRXpg7bypQgAVsGq0TjGUIvQquiQMTQSKf0q3f+FEdh0VC8unvFZbEuQGR5ZfpQDaj0RJVqrMNpKMOMuoaFWaRJLB0fjbv2uKMMdXnSCND+dHdzgr49fKmYKpShaGHBGPJ2tQPpQGAvRv+S9FtY3SjrqVeT4oQOglLk+p4V52ot2T8BKUJIeCSwY/NMv5ErXM0O21AEqXzhcJ+lum0CSyjLUtmB/v1RDEJW8oyjTzssyJJwFxMPMOb5cIB4M2JwbbiXwIqeY7LKJx3loodyWV71qGOdwiMXkSz3q/TR3YRH2QVoiv3WFyTVkSVT61iPjWdiDagZgU1VrwryuBgJIQhMiXx9KANC5K8wAjf5ebSWS2wqbFg0Jn3P66UVw1QKy9GFOQ0u3fhpQ1UvNBXwsZtEZKEMeqqvktt/OsWDE9SvKZ8DeOjgJKy7IOyhOzj2ld64Ccd+lplE="
+    - secure: "EPnLrotXZqKX6lhNH3EtaCyZz5LNoYhPUHkfNiPND9QC7SPZJvbCZW6KdD1ypWUAwH058omM9dPi/+Ms5UmtNLHHBjV8qiGVM2zF3LVgZZb5V1aSbK39CTUsko63DyF12auotLOBAGRmBBNUeSgJW/dLmWrKpSXfGjJ4qLT9jNSs+FUdhkAyQRzgEcKPiwpaVvElPLLKcE+Rh3AEDgnxmispRnejjbQkTYI4bFD5jFE8KxrKfxgZhCy5RlvV+108wg1C/rW/dxUKuUNb9BfohMQ4g08P4PysYRBJg4Q3RDZzTIg5OJPpZUsF4Nbwj/nAXlEJlZYagsQoTXeKWfggls4KzXhxCcLImNGSf1Ifyk/kZe+6Kiazmj+2WLGpzp3LhaVMaEsvjCC/5EeF9OCIWf5ksTISoJ47r1jlXB8fAcOiv6pi7zyFSdQmnzwfItoAGzpQPCY73w+DxOT739G8YcVMVZV7knQR4y3y0TOQhEyv7OKbnjCmqYZrpHX+1RmQumS8RJf+dXOGs+TUJYIIVMwjroxmrEFZYZmq6OhPrStlJoSpJjvFR9wns5MkpFR0pKlzF1uD+qYZv6SfbOhO27Ywg5fBvP0Vj5OOKV2cu2K1MLdGuNi+VP4NS6z6JHs68T6KFZ+T5Kk52YF+xaFvS2eXYyFc1G3/p0BUHOzLuWE="
+
+branches:
+  only:
+    - master
+
+script:
+  - /bin/true
+
+after_success:
+  - CGO_ENABLED=0 go build -a -installsuffix cgo -o hookyd cmd/hookyd/main.go
+  - CGO_ENABLED=0 go build -a -installsuffix cgo -o hooky cmd/hooky/main.go
+  - export REPO=sebest/hooky
+  - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo "$TRAVIS_BRANCH" ; fi`
+  - docker build -f dist/Dockerfile.travis -t $REPO:$COMMIT .
+  - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+  - docker tag $REPO:$COMMIT $REPO:$TAG
+  - docker tag $REPO:$COMMIT $REPO:travis-$TRAVIS_BUILD_NUMBER 
+  - docker push $REPO
