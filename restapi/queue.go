@@ -30,10 +30,10 @@ type Queue struct {
 	Retry *models.Retry `json:"retry"`
 
 	// MaxInFlight is the maximum number of attempts executed in parallel.
-	MaxInFlight int `json:"max_in_flight"`
+	MaxInFlight int `json:"maxInFlight"`
 
 	// InFlight is the current number of attempts executed in parallel.
-	InFlight int `json:"in_flight"`
+	InFlight int `json:"inFlight"`
 }
 
 func queueParams(r *rest.Request) (bson.ObjectId, string, string, error) {
