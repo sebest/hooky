@@ -2,6 +2,8 @@ package models
 
 import (
 	"fmt"
+	"io"
+	"net"
 
 	"github.com/tj/go-debug"
 	"gopkg.in/mgo.v2"
@@ -11,6 +13,8 @@ import (
 var (
 	// ModelsBaseDebug ...
 	ModelsBaseDebug = debug.Debug("hooky.models.base")
+
+	ErrDatabase = fmt.Errorf("Database Error")
 )
 
 type ListParams struct {
@@ -31,42 +35,79 @@ func NewBase(db *mgo.Database) *Base {
 	}
 }
 
-func (b *Base) EnsureIndex() {
-	b.EnsureApplicationIndex()
-	b.EnsureQueueIndex()
-	b.EnsureTaskIndex()
-	b.EnsureAttemptIndex()
-	// b.Migrate()
+// ShouldRefreshSession checks if we should refresh the mongo session
+func (b *Base) ShouldRefreshSession(err error) (bool, error) {
+	if err == io.EOF {
+		b.db.Session.Refresh()
+		return true, ErrDatabase
+	}
+	opError, ok := err.(*net.OpError)
+	if ok && opError.Op == "read" {
+		b.db.Session.Refresh()
+		return true, ErrDatabase
+	}
+	queryError, ok := err.(*mgo.QueryError)
+	if ok && queryError.Message == "not master" {
+		b.db.Session.Refresh()
+		return true, ErrDatabase
+	}
+	return false, err
+}
+
+func (b *Base) Bootstrap() error {
+	if err := b.EnsureApplicationIndex(); err != nil {
+		return err
+	}
+	if err := b.EnsureQueueIndex(); err != nil {
+		return err
+	}
+	if err := b.EnsureTaskIndex(); err != nil {
+		return err
+	}
+	if err := b.EnsureAttemptIndex(); err != nil {
+		return err
+	}
+	if err := b.migrate(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Migrate migrates database schema.
-func (b *Base) Migrate() {
-	fmt.Println("Migrate schema: start")
-	queueRef := make(map[string]bson.ObjectId)
-	queues := []Queue{}
-	if err := b.db.C("queues").Find(bson.M{}).All(&queues); err != nil {
-		fmt.Printf("Can't list queues: %s\n", err)
+func (b *Base) migrate() error {
+	query := bson.M{
+		"active":         true,
+		"deleted":        false,
+		"schedule":       bson.M{"$ne": ""},
+		"attempt_queued": bson.M{"$exists": false},
 	}
-	for _, queue := range queues {
-		queueRef[queue.Name] = queue.ID
+	update := bson.M{
+		"$set": bson.M{
+			"attempt_queued":  false,
+			"attempt_updated": 0,
+		},
+	}
+	_, err := b.db.C("tasks").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
+	if err != nil {
+		return err
 	}
 
-	cols := []string{"tasks", "attempts"}
-	query := bson.M{
-		"queue_id": bson.M{"$exists": 0},
+	query = bson.M{
+		"acked":  bson.M{"$exists": false},
+		"status": bson.M{"$in": []string{"success", "error"}},
 	}
-	for qName, qID := range queueRef {
-		query["queue"] = qName
-		update := bson.M{"$set": bson.M{"queue_id": qID}}
-		for _, col := range cols {
-			c, err := b.db.C(col).UpdateAll(query, update)
-			if err != nil {
-				fmt.Printf("Error updating %s: %s\n", col, err)
-			}
-			fmt.Printf("Updated %d documents in %s\n", c.Updated, col)
-		}
+	update = bson.M{
+		"$set": bson.M{
+			"acked": true,
+		},
 	}
-	fmt.Println("Migrate schema: done")
+	_, err = b.db.C("attempts").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // CleanDeletedRessources cleans ressources that have been deleted.
@@ -74,35 +115,59 @@ func (b *Base) CleanDeletedRessources() error {
 	query := bson.M{
 		"deleted": true,
 	}
-	if c, err := b.db.C("attempts").RemoveAll(query); err == nil {
-		deleted := c.Removed
-		ModelsBaseDebug("Cleaned %d deleted attempts", deleted)
-	} else {
-		return fmt.Errorf("failed to clean deleted attempts: %s", err)
+	iter := b.db.C("attempts").Find(query).Iter()
+	if err := iter.Err(); err != nil {
+		_, err = b.ShouldRefreshSession(err)
+		return err
 	}
+
+	deleted := 0
+	attempt := &Attempt{}
+	for iter.Next(attempt) {
+		b.DeQueue(attempt.QueueID, attempt.ID)
+		err := b.db.C("attempts").RemoveId(attempt.ID)
+		refreshed, err := b.ShouldRefreshSession(err)
+		if refreshed {
+			continue
+		} else if err != nil {
+			ModelsBaseDebug("Cleaned %d deleted attempts", deleted)
+			return err
+		}
+		deleted++
+	}
+	ModelsBaseDebug("Cleaned %d deleted attempts", deleted)
+	if err := iter.Close(); err != nil {
+		_, err = b.ShouldRefreshSession(err)
+		return err
+	}
+
 	if c, err := b.db.C("tasks").RemoveAll(query); err == nil {
 		deleted := c.Removed
 		ModelsBaseDebug("Cleaned %d deleted tasks", deleted)
 	} else {
-		return fmt.Errorf("failed to clean deleted tasks: %s", err)
+		_, err = b.ShouldRefreshSession(err)
+		return err
 	}
 	if c, err := b.db.C("queues").RemoveAll(query); err == nil {
 		deleted := c.Removed
 		ModelsBaseDebug("Cleaned %d deleted queues", deleted)
 	} else {
-		return fmt.Errorf("failed to clean deleted queues: %s", err)
+		_, err = b.ShouldRefreshSession(err)
+		return err
 	}
 	if c, err := b.db.C("applications").RemoveAll(query); err == nil {
 		deleted := c.Removed
 		ModelsBaseDebug("Cleaned %d deleted applications", deleted)
 	} else {
-		return fmt.Errorf("failed to clean deleted applications: %s", err)
+		_, err = b.ShouldRefreshSession(err)
+		return err
 	}
 	if c, err := b.db.C("accounts").RemoveAll(query); err == nil {
 		deleted := c.Removed
 		ModelsBaseDebug("Cleaned %d deleted accounts", deleted)
 	} else {
-		return fmt.Errorf("failed to clean deleted accounts: %s", err)
+		_, err = b.ShouldRefreshSession(err)
+		return err
 	}
 	return nil
 }

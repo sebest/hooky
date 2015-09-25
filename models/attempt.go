@@ -2,7 +2,6 @@ package models
 
 import (
 	"expvar"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -23,6 +22,7 @@ var (
 // AttemptStatuses
 var AttemptStatuses = map[string]bool{
 	"pending": true,
+	"running": true,
 	"success": true,
 	"error":   true,
 }
@@ -83,6 +83,9 @@ type Attempt struct {
 	// StatusMessage is a human readable message related to the Status.
 	StatusMessage string `bson:"status_message,omitempty"`
 
+	// Acked
+	Acked bool `bson:"acked"`
+
 	// Deleted
 	Deleted bool `bson:"deleted"`
 }
@@ -98,7 +101,7 @@ func (b *Base) NewAttempt(task *Task, deletePending bool, force bool) (*Attempt,
 		return nil, nil
 	}
 	attempt := &Attempt{
-		ID:          bson.NewObjectId(),
+		ID:          task.CurrentAttempt,
 		TaskID:      task.ID,
 		Account:     task.Account,
 		Application: task.Application,
@@ -115,18 +118,50 @@ func (b *Base) NewAttempt(task *Task, deletePending bool, force bool) (*Attempt,
 		Status:      "pending",
 	}
 	if err := b.db.C("attempts").Insert(attempt); err != nil {
+		_, err = b.ShouldRefreshSession(err)
+		return nil, err
+	}
+	if err := b.SetAttemptQueuedForTask(task); err != nil {
 		return nil, err
 	}
 	return attempt, nil
+}
+
+// AckAttempt marks the attempt as acknowledged.
+func (b *Base) AckAttempt(attemptID bson.ObjectId) (err error) {
+	update := bson.M{
+		"$set": bson.M{
+			"acked": true,
+		},
+	}
+	err = b.db.C("attempts").UpdateId(attemptID, update)
+	_, err = b.ShouldRefreshSession(err)
+	return
 }
 
 // GetAttempt returns an Attempt.
 func (b *Base) GetAttempt(attemptID bson.ObjectId) (*Attempt, error) {
 	attempt := &Attempt{}
 	if err := b.db.C("attempts").FindId(attemptID).One(attempt); err != nil {
+		_, err = b.ShouldRefreshSession(err)
+		if err == mgo.ErrNotFound {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return attempt, nil
+}
+
+// GetAttemptByID returns a Attempt given its ID.
+func (b *Base) GetAttemptByID(attemptID bson.ObjectId) (attempt *Attempt, err error) {
+	attempt = &Attempt{}
+	err = b.db.C("attempts").FindId(attemptID).One(attempt)
+	_, err = b.ShouldRefreshSession(err)
+	if err == mgo.ErrNotFound {
+		err = nil
+		attempt = nil
+	}
+	return
 }
 
 // DeletePendingAttempts deletes all pending Attempts for a given Task ID.
@@ -143,6 +178,7 @@ func (b *Base) DeletePendingAttempts(taskID bson.ObjectId) (bool, error) {
 	}
 	c, err := b.db.C("attempts").UpdateAll(query, update)
 	if err != nil {
+		_, err = b.ShouldRefreshSession(err)
 		return false, err
 	}
 	return c.Updated > 0, nil
@@ -163,17 +199,6 @@ func (b *Base) GetAttempts(account bson.ObjectId, application string, task strin
 		}
 	}
 	return b.getItems("attempts", query, lp, lr)
-}
-
-// ForceTaskAttempt ...
-func (b *Base) ForceTaskAttempt(account bson.ObjectId, application string, name string) (attempt *Attempt, err error) {
-	var task *Task
-	task, err = b.GetTask(account, application, name)
-	if err == nil {
-		task.At = time.Now().UnixNano()
-		attempt, err = b.NewAttempt(task, true, true)
-	}
-	return
 }
 
 // NextAttempt reserves and returns the next Attempt.
@@ -199,28 +224,29 @@ func (b *Base) NextAttempt(ttr int64) (*Attempt, error) {
 			query["queue_id"] = bson.M{"$nin": fullQueues}
 		}
 		attempt := &Attempt{}
-		_, err := b.db.C("attempts").Find(query).Apply(change, attempt)
+		_, err := b.db.C("attempts").Find(query).Sort("reserved").Apply(change, attempt)
+		_, err = b.ShouldRefreshSession(err)
 		if err == mgo.ErrNotFound {
-			// ModelsAttemptDebug("No attempt found")
 			return nil, nil
-		} else if err != nil {
+		}
+		if err != nil {
 			return nil, err
 		}
-		full, err := b.QueueFull(attempt.QueueID, attempt.ID)
+
+		full, err := b.EnQueue(attempt.QueueID, attempt.ID)
 		if err != nil {
 			return nil, err
 		}
 		if !full {
-			ModelsAttemptDebug("Found an attempt in queue %s", attempt.QueueID.Hex())
 			return attempt, nil
 		}
-		ModelsAttemptDebug("Queue %s full", attempt.QueueID)
+		ModelsAttemptDebug("Queue %s full", attempt.QueueID.Hex())
 		fullQueues = append(fullQueues, attempt.QueueID)
 	}
 }
 
 // DoAttempt executes the attempt.
-func (b *Base) DoAttempt(attempt *Attempt) (*Attempt, error) {
+func (b *Base) DoAttempt(attempt *Attempt) error {
 	var status string
 	var statusMessage string
 	var statusCode int
@@ -243,7 +269,7 @@ func (b *Base) DoAttempt(attempt *Attempt) (*Attempt, error) {
 		}
 		req, err := http.NewRequest(attempt.Method, attempt.URL, data)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		req.Header.Add("User-Agent", "Hooky")
 		req.Header.Add("X-Hooky-Account", attempt.Account.Hex())
@@ -276,8 +302,8 @@ func (b *Base) DoAttempt(attempt *Attempt) (*Attempt, error) {
 		ModelsAttemptDebug("Attempt [%s] %s %s : %d -> %s", attempt.ID.Hex(), attempt.Method, attempt.URL, statusCode, status)
 	}
 
-	if err := b.FillQueue(attempt.QueueID, attempt.ID); err != nil {
-		return nil, err
+	if err := b.DeQueue(attempt.QueueID, attempt.ID); err != nil {
+		return err
 	}
 	if status == "success" {
 		statsAttemptsSuccess.Add(1)
@@ -296,10 +322,11 @@ func (b *Base) DoAttempt(attempt *Attempt) (*Attempt, error) {
 		ReturnNew: true,
 	}
 	_, err := b.db.C("attempts").FindId(attempt.ID).Apply(change, attempt)
+	_, err = b.ShouldRefreshSession(err)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return attempt, nil
+	return nil
 }
 
 // TouchAttempt reserves an attemptsttempt for more time.
@@ -309,7 +336,9 @@ func (b *Base) TouchAttempt(attemptID bson.ObjectId, seconds int64) error {
 			"reserved": time.Now().UnixNano() + (seconds * 1000000000),
 		},
 	}
-	return b.db.C("attempts").UpdateId(attemptID, update)
+	err := b.db.C("attempts").UpdateId(attemptID, update)
+	_, err = b.ShouldRefreshSession(err)
+	return err
 }
 
 // CleanFinishedAttempts cleans attempts that are finished since more than X seconds.
@@ -318,9 +347,8 @@ func (b *Base) CleanFinishedAttempts(seconds int64) (deleted int, err error) {
 		"finished": bson.M{"$lte": time.Now().Unix() - seconds},
 	}
 	c, err := b.db.C("attempts").RemoveAll(query)
-	if err != nil {
-		err = fmt.Errorf("failed cleaning finished attempts: %s", err)
-	} else {
+	_, err = b.ShouldRefreshSession(err)
+	if err == nil {
 		deleted = c.Removed
 		ModelsAttemptDebug("Cleaned %d finished attempts", deleted)
 	}
@@ -328,15 +356,16 @@ func (b *Base) CleanFinishedAttempts(seconds int64) (deleted int, err error) {
 }
 
 // EnsureAttemptIndex creates mongo indexes for Application.
-func (b *Base) EnsureAttemptIndex() {
+func (b *Base) EnsureAttemptIndex() (err error) {
 	index1 := mgo.Index{
 		Key:        []string{"account", "application", "task"},
 		Unique:     false,
 		Background: false,
 		Sparse:     true,
 	}
-	if err := b.db.C("attempts").EnsureIndex(index1); err != nil {
-		fmt.Printf("Error creating index on attempts: %s\n", err)
+	err = b.db.C("attempts").EnsureIndex(index1)
+	if _, err = b.ShouldRefreshSession(err); err != nil {
+		return
 	}
 	index2 := mgo.Index{
 		Key:        []string{"status", "reserved", "deleted"},
@@ -344,18 +373,7 @@ func (b *Base) EnsureAttemptIndex() {
 		Background: true,
 		Sparse:     true,
 	}
-	if err := b.db.C("attempts").EnsureIndex(index2); err != nil {
-		fmt.Printf("Error creating index on attempts: %s\n", err)
-	}
-}
-
-// GetAttemptByID returns a Attempt given its ID.
-func (b *Base) GetAttemptByID(attemptID bson.ObjectId) (attempt *Attempt, err error) {
-	attempt = &Attempt{}
-	err = b.db.C("attempts").FindId(attemptID).One(attempt)
-	if err == mgo.ErrNotFound {
-		err = nil
-		attempt = nil
-	}
+	err = b.db.C("attempts").EnsureIndex(index2)
+	_, err = b.ShouldRefreshSession(err)
 	return
 }

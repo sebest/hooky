@@ -2,7 +2,6 @@ package models
 
 import (
 	"errors"
-	"fmt"
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -79,6 +78,7 @@ func (b *Base) NewQueue(account bson.ObjectId, applicationName string, name stri
 		AvailableInFlight: maxInFlight,
 	}
 	err = b.db.C("queues").Insert(queue)
+	_, err = b.ShouldRefreshSession(err)
 	if mgo.IsDup(err) {
 		query := bson.M{
 			"account":     queue.Account,
@@ -86,6 +86,7 @@ func (b *Base) NewQueue(account bson.ObjectId, applicationName string, name stri
 			"name":        queue.Name,
 		}
 		if err = b.db.C("queues").Find(query).One(queue); err != nil {
+			_, err = b.ShouldRefreshSession(err)
 			return nil, err
 		}
 		incMaxInFlight := maxInFlight - queue.MaxInFlight
@@ -102,6 +103,9 @@ func (b *Base) NewQueue(account bson.ObjectId, applicationName string, name stri
 			ReturnNew: true,
 		}
 		_, err = b.db.C("queues").Find(query).Apply(change, queue)
+		_, err = b.ShouldRefreshSession(err)
+	} else {
+		queue = nil
 	}
 	return
 }
@@ -116,9 +120,12 @@ func (b *Base) GetQueue(account bson.ObjectId, application string, name string) 
 	}
 	queue = &Queue{}
 	err = b.db.C("queues").Find(query).One(queue)
-	if err == mgo.ErrNotFound {
-		err = nil
+	_, err = b.ShouldRefreshSession(err)
+	if err != nil {
 		queue = nil
+		if err == mgo.ErrNotFound {
+			err = ErrQueueNotFound
+		}
 	}
 	return
 }
@@ -138,87 +145,111 @@ func (b *Base) DeleteQueue(account bson.ObjectId, application string, name strin
 	if name == "default" {
 		return ErrDeleteDefaultQueue
 	}
-	query := bson.M{
-		"account":     account,
-		"application": application,
-		"name":        name,
-	}
 	update := bson.M{
 		"$set": bson.M{
 			"deleted": true,
 		},
 	}
-	// TODO update taks using this queue to default queue
+	// TODO update tasks using this queue to default queue
 	// TODO update pending attemps to default queue
-	if _, err = b.db.C("queues").UpdateAll(query, update); err == nil {
-		query := bson.M{
-			"account":     account,
-			"application": application,
-			"queue":       name,
-		}
-		if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
-			_, err = b.db.C("attempts").UpdateAll(query, update)
-		}
+	query := bson.M{
+		"account":     account,
+		"application": application,
+		"queue":       name,
 	}
+	_, err = b.db.C("attempts").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
+	if err != nil {
+		return
+	}
+	_, err = b.db.C("tasks").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
+	if err != nil {
+		return
+	}
+
+	query = bson.M{
+		"account":     account,
+		"application": application,
+		"name":        name,
+	}
+	_, err = b.db.C("queues").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
 	return
 }
 
 // DeleteQueues deletes all Queues owns by an Account.
 func (b *Base) DeleteQueues(account bson.ObjectId, application string) (err error) {
-	query := bson.M{
-		"account":     account,
-		"application": application,
-		"name":        bson.M{"$ne": "default"},
-	}
 	update := bson.M{
 		"$set": bson.M{
 			"deleted": true,
 		},
 	}
-	if _, err = b.db.C("queues").UpdateAll(query, update); err == nil {
-		query = bson.M{
-			"account":     account,
-			"application": application,
-		}
-		if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
-			_, err = b.db.C("attempts").UpdateAll(query, update)
-		}
+
+	query := bson.M{
+		"account":     account,
+		"application": application,
 	}
+	_, err = b.db.C("attempts").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
+	if err != nil {
+		return
+	}
+
+	_, err = b.db.C("tasks").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
+	if err != nil {
+		return
+	}
+
+	query = bson.M{
+		"account":     account,
+		"application": application,
+		"name":        bson.M{"$ne": "default"},
+	}
+	_, err = b.db.C("queues").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
 	return
 }
 
-// QueueFull checks if a queue reached its max_in_flight.
-func (b *Base) QueueFull(queueID bson.ObjectId, attemptID bson.ObjectId) (full bool, err error) {
+// EnQueue checks if a queue reached its max_in_flight.
+func (b *Base) EnQueue(queueID bson.ObjectId, attemptID bson.ObjectId) (full bool, err error) {
 	query := bson.M{
 		"_id":                queueID,
 		"attempts_in_flight": attemptID,
 	}
 	nb, err := b.db.C("queues").Find(query).Count()
+	_, err = b.ShouldRefreshSession(err)
 	if err != nil && err != mgo.ErrNotFound {
 		return false, err
 	}
+	// this attemptID is already in the queue
 	if nb == 1 {
 		return false, nil
 	}
 	query = bson.M{
 		"_id": queueID,
-		"available_in_flight": bson.M{"$ne": 0},
+		"available_in_flight": bson.M{"$gt": 0},
+		"attempts_in_flight":  bson.M{"$ne": attemptID},
 	}
 	update := bson.M{
 		"$inc":  bson.M{"available_in_flight": -1},
 		"$push": bson.M{"attempts_in_flight": attemptID},
 	}
 	if err := b.db.C("queues").Update(query, update); err != nil {
+		_, err := b.ShouldRefreshSession(err)
 		if err == mgo.ErrNotFound {
+			// the queue is full
 			return true, nil
 		}
 		return false, err
 	}
+	// the queue is not full
 	return false, nil
 }
 
-// FillQueue increases the available_in_flight by one.
-func (b *Base) FillQueue(queueID bson.ObjectId, attemptID bson.ObjectId) (err error) {
+// DeQueue increases the available_in_flight by one.
+func (b *Base) DeQueue(queueID bson.ObjectId, attemptID bson.ObjectId) (err error) {
 	query := bson.M{
 		"_id":                queueID,
 		"attempts_in_flight": attemptID,
@@ -228,6 +259,10 @@ func (b *Base) FillQueue(queueID bson.ObjectId, attemptID bson.ObjectId) (err er
 		"$pull": bson.M{"attempts_in_flight": attemptID},
 	}
 	err = b.db.C("queues").Update(query, update)
+	_, err = b.ShouldRefreshSession(err)
+	if err == mgo.ErrNotFound {
+		err = nil
+	}
 	return
 }
 
@@ -237,14 +272,14 @@ func (b *Base) FixQueues() (err error) {
 }
 
 // EnsureQueueIndex creates mongo indexes for Queue.
-func (b *Base) EnsureQueueIndex() {
+func (b *Base) EnsureQueueIndex() (err error) {
 	index := mgo.Index{
 		Key:        []string{"account", "application", "name"},
 		Unique:     true,
 		Background: false,
 		Sparse:     true,
 	}
-	if err := b.db.C("queues").EnsureIndex(index); err != nil {
-		fmt.Printf("Error creating index on queues: %s\n", err)
-	}
+	err = b.db.C("queues").EnsureIndex(index)
+	_, err = b.ShouldRefreshSession(err)
+	return
 }
