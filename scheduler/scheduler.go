@@ -1,7 +1,7 @@
 package scheduler
 
 import (
-	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -46,11 +46,11 @@ func (s *Scheduler) Start() {
 			db := s.store.DB()
 			defer db.Session.Close()
 			b := models.NewBase(db)
-			if _, err := b.CleanFinishedAttempts(s.cleanFinishedAttempts); err != nil {
-				fmt.Println(err)
+			if _, err := b.CleanFinishedAttempts(s.cleanFinishedAttempts); err != nil && err != models.ErrDatabase {
+				log.Printf("Scheduler error with CleanFinishedAttempts: %s\n", err)
 			}
-			if err := b.CleanDeletedRessources(); err != nil {
-				fmt.Println(err)
+			if err := b.CleanDeletedRessources(); err != nil && err != models.ErrDatabase {
+				log.Printf("Scheduler error with CleanDeletedRessources: %s\n", err)
 			}
 		}
 		clean()
@@ -60,6 +60,30 @@ func (s *Scheduler) Start() {
 				return
 			case <-time.After(time.Second * 60):
 				clean()
+			}
+		}
+	}()
+
+	// Fixer
+	go func() {
+		fix := func() {
+			db := s.store.DB()
+			defer db.Session.Close()
+			b := models.NewBase(db)
+			if err := b.FixIntegrity(); err != nil && err != models.ErrDatabase {
+				log.Printf("Scheduler error with FixIntegrity: %s\n", err)
+			}
+			if err := b.FixQueues(); err != nil && err != models.ErrDatabase {
+				log.Printf("Scheduler error with FixQueues: %s\n", err)
+			}
+		}
+		fix()
+		for {
+			select {
+			case <-s.quit:
+				return
+			case <-time.After(time.Second * 60):
+				fix()
 			}
 		}
 	}()
@@ -89,11 +113,10 @@ func (s *Scheduler) Start() {
 						}()
 						<-s.querierSem
 						return
-					} else if err != nil {
-						fmt.Println(err)
+					} else if err != nil && err != models.ErrDatabase {
+						log.Printf("Scheduler error with NextAttempt: %#v\n", err)
 					}
 					<-s.workerSem
-					time.Sleep(100 * time.Millisecond)
 					<-s.querierSem
 				}()
 			}
@@ -111,7 +134,7 @@ func (s *Scheduler) worker(attempt *models.Attempt) {
 	defer db.Session.Close()
 	b := models.NewBase(db)
 	// Start a goroutine to touch/reserve the Attempt.
-	go func() {
+	go func(attempt *models.Attempt) {
 		defer wg.Done()
 		for {
 			select {
@@ -119,20 +142,24 @@ func (s *Scheduler) worker(attempt *models.Attempt) {
 				if attempt == nil {
 					return
 				}
-				_, err := b.NextAttemptForTask(attempt.TaskID, attempt.Status)
-				if err != nil {
-					fmt.Println(err)
+				_, err := b.NextAttemptForTask(attempt)
+				if err != nil && err != models.ErrDatabase {
+					log.Printf("Scheduler error with NextAttemptForTask: %#v\n", err)
 				}
 				return
 			case <-time.After(time.Duration(s.touchInterval) * time.Second):
 				b.TouchAttempt(attempt.ID, s.touchInterval*2)
 			}
 		}
-	}()
-	attempt, err := b.DoAttempt(attempt)
-	if err != nil {
-		fmt.Println(err)
+	}(attempt)
+	err := b.DoAttempt(attempt)
+	if err == nil {
+		result <- attempt
+	} else {
+		if err != models.ErrDatabase {
+			log.Printf("Scheduler error with DoAttempt: %#v\n", err)
+		}
+		result <- nil
 	}
-	result <- attempt
 	wg.Wait()
 }

@@ -20,6 +20,7 @@ type ListResult struct {
 func (b *Base) getItems(collection string, query bson.M, lp ListParams, lr *ListResult) (err error) {
 	skip := lp.Limit * (lp.Page - 1)
 	if lr.Total, err = b.db.C(collection).Find(query).Count(); err != nil {
+		_, err = b.ShouldRefreshSession(err)
 		return
 	}
 	lr.Page = lp.Page

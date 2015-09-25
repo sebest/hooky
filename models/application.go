@@ -2,7 +2,6 @@ package models
 
 import (
 	"errors"
-	"fmt"
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -38,6 +37,7 @@ func (b *Base) NewApplication(account bson.ObjectId, name string) (application *
 		Name:    name,
 	}
 	err = b.db.C("applications").Insert(application)
+	_, err = b.ShouldRefreshSession(err)
 	return
 }
 
@@ -50,6 +50,7 @@ func (b *Base) GetApplication(account bson.ObjectId, name string) (application *
 	}
 	application = &Application{}
 	err = b.db.C("applications").Find(query).One(application)
+	_, err = b.ShouldRefreshSession(err)
 	if err == mgo.ErrNotFound {
 		err = nil
 		application = nil
@@ -62,50 +63,72 @@ func (b *Base) DeleteApplication(account bson.ObjectId, name string) (err error)
 	if name == "default" {
 		return ErrDeleteDefaultApplication
 	}
-	query := bson.M{
-		"account": account,
-		"name":    name,
-	}
 	update := bson.M{
 		"$set": bson.M{
 			"deleted": true,
 		},
 	}
-	if _, err = b.db.C("applications").UpdateAll(query, update); err == nil {
-		query := bson.M{
-			"account":     account,
-			"application": name,
-		}
-		if _, err = b.db.C("queues").UpdateAll(query, update); err == nil {
-			if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
-				_, err = b.db.C("attempts").UpdateAll(query, update)
-			}
-		}
+
+	query := bson.M{
+		"account":     account,
+		"application": name,
 	}
+	_, err = b.db.C("attempts").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
+	if err != nil {
+		return
+	}
+	_, err = b.db.C("tasks").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
+	if err != nil {
+		return
+	}
+	_, err = b.db.C("queues").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
+	if err != nil {
+		return
+	}
+
+	query = bson.M{
+		"account": account,
+		"name":    name,
+	}
+	_, err = b.db.C("applications").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
 	return
 }
 
 // DeleteApplications deletes all Applications owns by an Account.
 func (b *Base) DeleteApplications(account bson.ObjectId) (err error) {
-	query := bson.M{
-		"account": account,
-		"name":    bson.M{"$ne": "default"},
-	}
 	update := bson.M{
 		"$set": bson.M{
 			"deleted": true,
 		},
 	}
-	if _, err = b.db.C("applications").UpdateAll(query, update); err == nil {
-		query = bson.M{
-			"account": account,
-		}
-		if _, err = b.db.C("queues").UpdateAll(query, update); err == nil {
-			if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
-				_, err = b.db.C("attempts").UpdateAll(query, update)
-			}
-		}
+	query := bson.M{
+		"account": account,
 	}
+	_, err = b.db.C("attempts").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
+	if err != nil {
+		return
+	}
+	_, err = b.db.C("tasks").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
+	if err != nil {
+		return
+	}
+	_, err = b.db.C("queues").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
+	if err != nil {
+		return
+	}
+	query = bson.M{
+		"account": account,
+		"name":    bson.M{"$ne": "default"},
+	}
+	_, err = b.db.C("applications").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
 	return
 }
 
@@ -119,14 +142,14 @@ func (b *Base) GetApplications(account bson.ObjectId, lp ListParams, lr *ListRes
 }
 
 // EnsureApplicationIndex creates mongo indexes for Application.
-func (b *Base) EnsureApplicationIndex() {
+func (b *Base) EnsureApplicationIndex() (err error) {
 	index := mgo.Index{
 		Key:        []string{"account", "name"},
 		Unique:     true,
 		Background: false,
 		Sparse:     true,
 	}
-	if err := b.db.C("applications").EnsureIndex(index); err != nil {
-		fmt.Printf("Error creating index on applications: %s\n", err)
-	}
+	err = b.db.C("applications").EnsureIndex(index)
+	_, err = b.ShouldRefreshSession(err)
+	return
 }

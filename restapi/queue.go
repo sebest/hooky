@@ -81,6 +81,10 @@ func PutQueue(w rest.ResponseWriter, r *rest.Request) {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if queue == nil {
+		rest.NotFound(w, r)
+		return
+	}
 	w.WriteJson(NewQueueFromModel(queue))
 }
 
