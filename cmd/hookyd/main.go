@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/codegangsta/cli"
+	"github.com/sebest/hooky/models"
 	"github.com/sebest/hooky/restapi"
 	"github.com/sebest/hooky/scheduler"
 	"github.com/sebest/hooky/store"
@@ -36,7 +36,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "mongo-uri",
-			Value:  "localhost/hooky",
+			Value:  "mongodb://127.0.0.1/hooky",
 			Usage:  "MongoDB URI to connect to",
 			EnvVar: "HOOKY_MONGO_URI",
 		},
@@ -82,6 +82,13 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		db := s.DB()
+		if err := models.NewBase(db).Bootstrap(); err != nil {
+			log.Fatal(err)
+		}
+		db.Session.Close()
+
 		sched := scheduler.New(s, c.Int("max-mongo-query"), c.Int("max-http-request"), c.Int("touch-interval"), c.Int("clean-finished-attempts")*3600)
 		sched.Start()
 		ra, err := restapi.New(s, c.String("admin-password"), c.String("accesslog-format"))
@@ -97,11 +104,11 @@ func main() {
 		}
 		err = server.ListenAndServe()
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
-		fmt.Println("exiting")
+		log.Println("exiting...")
 		sched.Stop()
-		fmt.Println("exited")
+		log.Println("exited")
 	}
 	app.Run(os.Args)
 }

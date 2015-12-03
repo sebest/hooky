@@ -30,6 +30,7 @@ func (b *Base) NewAccount(name *string) (account *Account, err error) {
 		Key:  randKey(32),
 	}
 	err = b.db.C("accounts").Insert(account)
+	_, err = b.ShouldRefreshSession(err)
 	return
 }
 
@@ -51,6 +52,7 @@ func (b *Base) UpdateAccount(accountID bson.ObjectId, name *string) (account *Ac
 	}
 	account = &Account{}
 	_, err = b.db.C("accounts").Find(query).Apply(change, account)
+	_, err = b.ShouldRefreshSession(err)
 	return
 }
 
@@ -62,6 +64,7 @@ func (b *Base) GetAccount(accountID bson.ObjectId) (account *Account, err error)
 	}
 	account = &Account{}
 	err = b.db.C("accounts").Find(query).One(account)
+	_, err = b.ShouldRefreshSession(err)
 	if err == mgo.ErrNotFound {
 		err = nil
 		account = nil
@@ -76,19 +79,33 @@ func (b *Base) DeleteAccount(account bson.ObjectId) (err error) {
 			"deleted": true,
 		},
 	}
-	err = b.db.C("accounts").UpdateId(account, update)
-	if err == nil {
-		query := bson.M{
-			"account": account,
-		}
-		if _, err = b.db.C("applications").UpdateAll(query, update); err == nil {
-			if _, err = b.db.C("queues").UpdateAll(query, update); err == nil {
-				if _, err = b.db.C("tasks").UpdateAll(query, update); err == nil {
-					_, err = b.db.C("attempts").UpdateAll(query, update)
-				}
-			}
-		}
+
+	query := bson.M{
+		"account": account,
 	}
+	_, err = b.db.C("attempts").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
+	if err != nil {
+		return
+	}
+	_, err = b.db.C("queues").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
+	if err != nil {
+		return
+	}
+	_, err = b.db.C("tasks").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
+	if err != nil {
+		return
+	}
+	_, err = b.db.C("applications").UpdateAll(query, update)
+	_, err = b.ShouldRefreshSession(err)
+	if err != nil {
+		return
+	}
+
+	err = b.db.C("accounts").UpdateId(account, update)
+	_, err = b.ShouldRefreshSession(err)
 	return
 }
 
@@ -109,6 +126,7 @@ func (b *Base) AuthenticateAccount(account bson.ObjectId, key string) (bool, err
 	}
 	n, err := b.db.C("accounts").Find(query).Count()
 	if err != nil {
+		_, err = b.ShouldRefreshSession(err)
 		return false, err
 	}
 	return n == 1, nil

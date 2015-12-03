@@ -1,7 +1,7 @@
 package restapi
 
 import (
-	"fmt"
+	"log"
 	"strings"
 
 	"github.com/ant0ine/go-json-rest/rest"
@@ -45,12 +45,12 @@ func authenticate(adminPassword string) func(account string, key string, r *rest
 		}
 		b := GetBase(r)
 		if bson.IsObjectIdHex(account) == false {
-			fmt.Printf("Authentication error: invalid account %s", account)
+			log.Printf("Authentication error: invalid account %s", account)
 			return false
 		}
 		res, err := b.AuthenticateAccount(bson.ObjectIdHex(account), key)
 		if err != nil {
-			fmt.Printf("Authentication error: %s\n", err.Error())
+			log.Printf("Authentication error: %s\n", err.Error())
 			return false
 		}
 		return res
@@ -85,10 +85,6 @@ func Authenticate(w rest.ResponseWriter, r *rest.Request) {
 
 // New creates a new instance of the Rest API.
 func New(s *store.Store, adminPassword string, logStyle string) (*rest.Api, error) {
-	db := s.DB()
-	models.NewBase(db).EnsureIndex()
-	db.Session.Close()
-
 	api := rest.NewApi()
 	if logStyle == "json" {
 		api.Use(&rest.AccessLogJsonMiddleware{})

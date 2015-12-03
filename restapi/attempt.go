@@ -139,7 +139,7 @@ func PostAttempt(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	b := GetBase(r)
-	attempt, err := b.ForceTaskAttempt(accountID, applicationName, taskName)
+	attempt, err := b.ForceAttemptForTask(accountID, applicationName, taskName)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return

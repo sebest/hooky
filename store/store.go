@@ -15,7 +15,6 @@ func New(url string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	session.SetSyncTimeout(10 * time.Second)
 	session.SetSocketTimeout(20 * time.Second)
 	session.SetSafe(&mgo.Safe{})
 	return &Store{
